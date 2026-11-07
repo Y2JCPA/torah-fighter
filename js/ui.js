@@ -67,8 +67,20 @@
     if (full) Art.portrait(x, hero, w / 2, h / 2, h * 0.95, true); else Art.portrait(x, hero, w / 2, h / 2 + 2, Math.min(w, h) * 0.8);
     return c;
   }
-  function stageCanvas(stage, w, h) {
-    if (use3D) {
+  // 3D stage thumbnails are expensive to build, so show the 2D one immediately and upgrade it in the background
+  const thumbQueue = [];
+  function lazyStageCanvas(stage, w, h) {
+    const c = stageCanvas(stage, w, h, true);
+    if (use3D) { thumbQueue.push({ stage, w, h, c }); if (thumbQueue.length === 1) setTimeout(pumpThumbs, 60); }
+    return c;
+  }
+  function pumpThumbs() {
+    const j = thumbQueue.shift(); if (!j) return;
+    if (j.c.isConnected && use3D) { const img = R3D.snapshotStage(j.stage, j.w * 2, j.h * 2); j.c.getContext('2d').drawImage(img, 0, 0, j.c.width, j.c.height); }
+    if (thumbQueue.length) setTimeout(pumpThumbs, 40);
+  }
+  function stageCanvas(stage, w, h, force2D = false) {
+    if (use3D && !force2D) {
       const img = R3D.snapshotStage(stage, w * 2, h * 2);
       const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; c.getContext('2d').drawImage(img, 0, 0); return c;
     }
@@ -332,7 +344,7 @@
     const box = n.querySelector('#stg');
     STAGES.forEach((s, i) => {
       const d = el(`<div class="stg ${i === 0 ? 'default' : ''}" tabindex="0" data-nav data-st="${s.id}"><div class="info"><b>${esc(s.name)} <span class="he">${s.he}</span></b><small>${esc(s.note)}${s.hazard ? ' <b style="color:#ffb37a">Hazard</b>' : ''}</small></div></div>`);
-      d.insertBefore(stageCanvas(s, 260, 120), d.firstChild);
+      d.insertBefore(lazyStageCanvas(s, 260, 120), d.firstChild);
       box.appendChild(d);
     });
     const go = (id) => {
@@ -672,7 +684,7 @@
         top.insertBefore(c, top.firstChild); det.appendChild(top); det.appendChild(quoteBlock(e.src));
       } else {
         const top = el(`<div><h3>${esc(e.name)}<span class="he">${e.he}</span></h3><p>${esc(e.note)}</p>${e.hazard ? `<p><b>Hazard:</b> ${({ lightning: 'Lightning strikes the mountain. Watch for the glowing column.', walls: 'The shofar sounds and the side walls collapse for a while.', fire: 'Fire falls on the altar. Stay off it when it glows.' })[e.hazard]}</p>` : ''}</div>`);
-        top.insertBefore(stageCanvas(e, 420, 190), top.firstChild); det.appendChild(top); det.appendChild(quoteBlock(e.src));
+        top.insertBefore(lazyStageCanvas(e, 420, 190), top.firstChild); det.appendChild(top); det.appendChild(quoteBlock(e.src));
       }
     }
     entries.forEach((e, i) => {
