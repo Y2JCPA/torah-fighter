@@ -2,7 +2,12 @@
 
 A platform brawler in the style of the classic party fighters, starring the heroes of Tanach. Every special move comes from a passuk or a gemara. The sources were researched with the [Sefaria](https://www.sefaria.org) API, and the in-game **Sefer** pulls the live Hebrew and English text from Sefaria.
 
-Plain HTML, CSS and JS with no build step. Graphics are **low-poly 3D** (N64-style, cartoon shading with outlines) rendered with a vendored copy of Three.js. A classic 2D renderer is still available under Settings → Graphics. It runs on PC (keyboard or gamepad) and on phones and tablets (touch controls). Open `index.html` through any static server, or turn on GitHub Pages.
+Plain HTML, CSS and JS with no build step. Graphics are **3D**, rendered with a vendored copy of Three.js and everything built in code:
+- **Heroes:** sculpted, with cloth, skin, metal and wood materials, capes that react to movement, curly beards and hair, eyes that blink.
+- **Stages:** textured stone and grass with grass blowing in the wind, a procedural sky with sun, clouds and stars, and layered hills fading into haze.
+- **Effects:** Smash-style swing trails, hit flashes, and bloom with film tone mapping.
+
+Quality steps down automatically on slower devices. A classic 2D renderer is still available under Settings → Graphics. It runs on PC (keyboard or gamepad) and on phones and tablets (touch controls). Open `index.html` through any static server, or turn on GitHub Pages.
 
 ## Character select
 The roster is a wall of hero tiles, styled after Smash Ultimate. Each player has a token (P1–P4, or CPU) that sits on their hero; drag it to another tile to switch, or drop it off the roster to clear. Player panels along the bottom show the hero in 3D, the HMN/CPU toggle, controller and CPU level. When everyone has picked, a **READY TO FIGHT** banner appears. The announcer reads out each hero's name, using the browser's speech engine. Rules are behind the chip in the top-right corner.
