@@ -14,11 +14,26 @@
     get(k, d) { try { const v = localStorage.getItem('tf_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
   };
-  const settings = Object.assign({ music: true, sfx: true, touch: 'auto', shake: true, tapJump: true, hitboxes: false }, store.get('settings', {}));
+  const settings = Object.assign({ graphics: '3d', music: true, sfx: true, touch: 'auto', shake: true, tapJump: true, hitboxes: false }, store.get('settings', {}));
   const rules = Object.assign({ mode: 'stock', stocks: 3, time: 3, items: 'medium', cpu: 4, teams: false, hazards: true, finals: true }, store.get('rules', {}));
   const cleared = store.get('cleared', {});
   Audio.setMusic(settings.music); Audio.setSfx(settings.sfx);
   const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  const canvas3d = document.getElementById('game3d');
+  let use3D = false;
+  function applyGraphics() {
+    use3D = settings.graphics === '3d' && (R3D.ok || R3D.init(canvas3d));
+    canvas3d.style.display = use3D ? 'block' : 'none';
+    snapCanvasCache.clear();
+  }
+  const snapCanvasCache = new Map();
+  Art.setPortraitHook((c, hero, cx, cy, size, full) => {
+    if (!use3D) return false;
+    const img = R3D.snapshotHero(hero, full ? 'full' : 'head');
+    if (full) { const h = size * 1.12, w = h * img.width / img.height; c.drawImage(img, cx - w / 2, cy - h / 2, w, h); }
+    else { const s2 = size * 1.35; c.drawImage(img, cx - s2 / 2, cy - s2 / 2 - size * 0.05, s2, s2); }
+    return true;
+  });
 
   /* ---------- canvas ---------- */
   function resize() {
@@ -41,11 +56,22 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function click(node, sel, fn) { node.querySelectorAll(sel).forEach(e => e.addEventListener('click', (ev) => { Audio.init(); Audio.play('menu'); fn(e, ev); })); }
   function heroCanvas(hero, w, h, full = true) {
+    if (use3D) {
+      const img = R3D.snapshotHero(hero, full ? 'full' : 'head');
+      const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; const x = c.getContext('2d');
+      const sc = Math.min(c.width / img.width, c.height / img.height) * (full ? 1 : 1.15);
+      x.drawImage(img, (c.width - img.width * sc) / 2, (c.height - img.height * sc) / 2, img.width * sc, img.height * sc);
+      return c;
+    }
     const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; const x = c.getContext('2d'); x.scale(2, 2);
     if (full) Art.portrait(x, hero, w / 2, h / 2, h * 0.95, true); else Art.portrait(x, hero, w / 2, h / 2 + 2, Math.min(w, h) * 0.8);
     return c;
   }
   function stageCanvas(stage, w, h) {
+    if (use3D) {
+      const img = R3D.snapshotStage(stage, w * 2, h * 2);
+      const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; c.getContext('2d').drawImage(img, 0, 0); return c;
+    }
     const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; const x = c.getContext('2d'); x.scale(2, 2);
     const W = ENG.createWorld({ stage, players: [], stocks: 1, items: 'off', mode: 'training', noCountdown: true });
     W.cam = { x: 0, y: -120, z: Math.min(w / 1300, h / 560) };
@@ -231,6 +257,7 @@
     Audio.init();
     // Give each fighter a slot index matching its config position for colors
     state.W = ENG.createWorld(cfg);
+    if (use3D) cfg.players.forEach(p => R3D.snapshotHero(p.hero, 'head'));
     state.W.cfg.hitboxes = settings.hitboxes;
     state.match = { cfg, onEnd: onEnd || versusResults, koOrder: [] };
     state.scene = 'match'; state.demo = null;
@@ -306,14 +333,24 @@
   function render() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const W = state.scene === 'match' ? state.W : state.demo;
-    if (!W) { ctx.fillStyle = '#140c26'; ctx.fillRect(0, 0, vw, vh); return; }
+    if (!W) { ctx.clearRect(0, 0, vw, vh); if (!use3D) { ctx.fillStyle = '#140c26'; ctx.fillRect(0, 0, vw, vh); } return; }
     const hudH = state.scene === 'match' ? (state.hudH ?? 70) : 0;
     ENG.updateCamera(W, vw, vh - hudH);
     const cam = W.cam;
+    const shake = settings.shake ? W.shake : 0;
+    const shx = (Math.random() - 0.5) * shake, shy = (Math.random() - 0.5) * shake;
+    if (use3D) {
+      R3D.frame(W, vw, vh, hudH, shx, shy);
+      ctx.clearRect(0, 0, vw, vh);
+      ctx.save();
+      ctx.translate(vw / 2 + shx, (vh - hudH) / 2 + shy);
+      ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+      for (const f of W.fighters) Art.fighterOverlay(ctx, f, W);
+      for (const e of W.effects) if (e.type === 'text' || e.type === 'ko' || e.type === 'target' || e.type === 'raven') Art.effect(ctx, e, W);
+    } else {
     Art.stageBG(ctx, W, vw, vh);
     ctx.save();
-    const shake = settings.shake ? W.shake : 0;
-    ctx.translate(vw / 2 + (Math.random() - 0.5) * shake, (vh - hudH) / 2 + (Math.random() - 0.5) * shake);
+    ctx.translate(vw / 2 + shx, (vh - hudH) / 2 + shy);
     ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
     Art.stage(ctx, W);
     for (const z of W.fields) Art.field(ctx, z, W);
@@ -324,6 +361,7 @@
     for (const p of W.projectiles) Art.proj(ctx, p, W);
     for (const F of W.finals) if (!(F.fin.kind === 'flood' || F.fin.kind === 'pillars')) Art.finalFx(ctx, F, W);
     for (const e of W.effects) Art.effect(ctx, e, W);
+    }
     if (W.cfg.hitboxes && W.lastHB) { ctx.fillStyle = 'rgba(255,0,0,.35)'; for (const h of W.lastHB) ctx.fillRect(h.rect.x, h.rect.y, h.rect.w, h.rect.h); ctx.strokeStyle = 'rgba(0,255,255,.6)'; for (const f of W.fighters) { const b = f.hurtbox(); ctx.strokeRect(b.x, b.y, b.w, b.h); } }
     ctx.restore();
     if (state.scene === 'match') {
@@ -586,6 +624,7 @@
   function settingsScreen() {
     const n = el(`<div class="screen dim"><div class="panel">
       <h2>Settings <span class="he" style="color:var(--gold2)">הַגְדָּרוֹת</span></h2>
+      <div class="row">Graphics<select data-nav data-s="graphics"><option value="3d">3D (Three.js)</option><option value="2d">Classic 2D (fastest)</option></select></div>
       <div class="row">Music<select data-nav data-s="music"><option value="true">On</option><option value="false">Off</option></select></div>
       <div class="row">Sound effects<select data-nav data-s="sfx"><option value="true">On</option><option value="false">Off</option></select></div>
       <div class="row">Touch controls<select data-nav data-s="touch"><option value="auto">Automatic</option><option value="always">Always show</option><option value="never">Never</option></select></div>
@@ -596,7 +635,7 @@
       <button class="btn center default" data-nav data-b style="margin-top:12px;width:100%">Done</button></div></div>`);
     n.querySelectorAll('[data-s]').forEach(s => {
       s.value = String(settings[s.dataset.s]);
-      s.addEventListener('change', () => { let v = s.value; if (v === 'true' || v === 'false') v = v === 'true'; settings[s.dataset.s] = v; store.set('settings', settings); Audio.setMusic(settings.music); Audio.setSfx(settings.sfx); if (settings.music) Audio.startMusic(0); });
+      s.addEventListener('change', () => { let v = s.value; if (v === 'true' || v === 'false') v = v === 'true'; settings[s.dataset.s] = v; store.set('settings', settings); Audio.setMusic(settings.music); Audio.setSfx(settings.sfx); if (settings.music) Audio.startMusic(0); if (s.dataset.s === 'graphics') applyGraphics(); });
     });
     click(n, '[data-clear]', () => { for (const k in cleared) delete cleared[k]; store.set('cleared', cleared); });
     click(n, '[data-b]', titleScreen); show(n, titleScreen);
@@ -609,6 +648,7 @@
   const unlock = () => { Audio.init(); if (state.scene !== 'match') Audio.startMusic(0); };
   window.addEventListener('pointerdown', unlock, { once: true });
   window.addEventListener('keydown', unlock, { once: true });
+  applyGraphics();
   resize();
   let last = performance.now(), acc = 0;
   const STEP = 1000 / 60;
@@ -622,7 +662,7 @@
     requestAnimationFrame(frame);
   }
   // test hooks (used by tests/smoke.js)
-  window.TF = { state, startMatch, titleScreen, versusScreen, seferScreen, classicPick, trainingPick, ENG, HEROES, STAGES };
+  window.TF = { get use3D() { return use3D; }, state, startMatch, titleScreen, versusScreen, seferScreen, classicPick, trainingPick, ENG, HEROES, STAGES };
   titleScreen();
   requestAnimationFrame(frame);
 })();

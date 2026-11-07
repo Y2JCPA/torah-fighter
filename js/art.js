@@ -353,6 +353,20 @@ const Art = (() => {
     if (!f.dead) tag(ctx, f, W);
   }
 
+  function fighterOverlay(ctx, f, W) {
+    if (f.dead) return;
+    const t = W.t;
+    ctx.save(); ctx.translate(f.x, f.y);
+    if (f.buffs.speed) { ctx.strokeStyle = 'rgba(255,211,77,.6)'; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-f.facing * (f.w * 0.6 + i * 8), -f.h * (0.3 + i * 0.2)); ctx.lineTo(-f.facing * (f.w * 1.2 + i * 8), -f.h * (0.3 + i * 0.2)); ctx.stroke(); } }
+    if (f.stun) {
+      if (f.stun.type === 'sleep') { ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.fillText('z', 14 + Math.sin(t * 0.1) * 4, -f.h - 6 - (t % 40) * 0.5); ctx.fillText('Z', 24, -f.h - 20 - (t % 40) * 0.3); }
+      if (f.stun.type === 'dizzy') { for (let i = 0; i < 3; i++) { const a = t * 0.12 + i * TAU / 3; ctx.fillStyle = '#ffe680'; star(ctx, Math.cos(a) * 22, -f.h - 8 + Math.sin(a) * 6, 6); } }
+    }
+    if (f.reflect && !f.reflect.absorb) for (let i = 0; i < 3; i++) { ctx.fillStyle = '#ffe680'; ctx.font = '16px serif'; ctx.fillText('♪', Math.cos(t * 0.1 + i * 2) * f.reflect.r * 0.8, -f.h / 2 + Math.sin(t * 0.1 + i * 2) * f.reflect.r * 0.8); }
+    ctx.restore();
+    tag(ctx, f, W);
+  }
+
   function tag(ctx, f, W) {
     const lab = f.isBoss ? 'BOSS' : f.cpu ? 'CPU' : 'P' + (f.slot + 1);
     const y = f.y - f.h - 26 - (f.hero.look.head === 'biret' || f.hero.look.head === 'kohen' ? 10 : 0);
@@ -365,7 +379,9 @@ const Art = (() => {
   function magen(ctx, x, y, r) { ctx.beginPath(); for (let k = 0; k < 2; k++) { ctx.moveTo(x + Math.cos(-Math.PI / 2 + k * Math.PI) * r, y + Math.sin(-Math.PI / 2 + k * Math.PI) * r); for (let i = 1; i <= 3; i++) { const a = -Math.PI / 2 + k * Math.PI + i * TAU / 3; ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } } ctx.stroke(); }
 
   /* ---------- Portrait (menus & HUD) ---------- */
+  let portraitHook = null;
   function portrait(ctx, hero, cx, cy, size, full = false) {
+    if (portraitHook && portraitHook(ctx, hero, cx, cy, size, full)) return;
     ctx.save(); ctx.translate(cx, cy);
     if (full) {
       const H = 90, sc = size / (H * 1.25);
@@ -811,5 +827,5 @@ const Art = (() => {
     }
   }
 
-  return { fighter, portrait, item, itemIcon, proj, minion, field, effect, finalFx, stageBG, stage, hud, offscreen, shade, rr, star, magen, flame, drawWeapon };
+  return { pose, handWeapon, fighterOverlay, setPortraitHook(fn) { portraitHook = fn; }, fighter, portrait, item, itemIcon, proj, minion, field, effect, finalFx, stageBG, stage, hud, offscreen, shade, rr, star, magen, flame, drawWeapon };
 })();

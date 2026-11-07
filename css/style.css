@@ -5,6 +5,7 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Rubik', 'Trebuchet MS', sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+canvas#game3d { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; background: #140c26; }
 canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; }
 .hidden { display: none !important; }
 .he { font-family: 'Frank Ruhl Libre', serif; direction: rtl; }
