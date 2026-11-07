@@ -1,0 +1,11 @@
+{
+  "name": "Torah Fighter",
+  "short_name": "Torah Fighter",
+  "description": "A platform brawler starring the heroes of Tanach.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#140c26",
+  "theme_color": "#1a1030",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

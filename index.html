@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1030">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="Torah Fighter: a platform brawler starring the heroes of Tanach. Avraham, Moshe, David, Shimshon, Benaya, Yonatan, the Maharal and more. Every move comes from a passuk or a gemara.">
+<title>Torah Fighter · גִּבּוֹרֵי הַתּוֹרָה</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- Touch controls -->
+<div id="touch" class="hidden" aria-hidden="true">
+  <div id="tStick"><div id="tKnob"></div></div>
+  <div id="tBtns">
+    <button data-btn="special" class="tb tb-b">B<small>Special</small></button>
+    <button data-btn="attack" class="tb tb-a">A<small>Attack</small></button>
+    <button data-btn="smash" class="tb tb-s">S<small>Smash</small></button>
+    <button data-btn="jump" class="tb tb-j">⤒<small>Jump</small></button>
+    <button data-btn="shield" class="tb tb-sh">🛡<small>Shield</small></button>
+  </div>
+  <button id="tPause" data-btn="pause" class="tb tb-p">❚❚</button>
+</div>
+
+<div id="ui"></div>
+<div id="rotate" class="hidden"><div>↻<p>Turn your phone sideways to fight!</p></div></div>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/art.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
