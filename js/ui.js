@@ -153,80 +153,176 @@
       used.add(s.device);
     });
   }
-  function versusScreen() {
+  /* ---------- Character select (Ultimate-style roster wall, tokens, player panels) ---------- */
+  const tileCache = new Map();
+  function tileCanvas(hero) {
+    const key = hero.id + (use3D ? '3' : '2');
+    if (tileCache.has(key)) return tileCache.get(key);
+    const W = 320, H = 240, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, Art.shade(hero.color, 40)); g.addColorStop(0.55, hero.color); g.addColorStop(1, Art.shade(hero.color, -70));
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.save(); x.globalAlpha = 0.18; x.fillStyle = '#fff'; for (let i = -4; i < 12; i++) { x.beginPath(); x.moveTo(i * 44, H); x.lineTo(i * 44 + 22, H); x.lineTo(i * 44 + 22 + H * 0.6, 0); x.lineTo(i * 44 + H * 0.6, 0); x.fill(); } x.restore();
+    if (use3D) x.drawImage(R3D.snapshotHero(hero, 'bust'), 0, 0, W, H);
+    else { x.save(); Art.portrait(x, hero, W * 0.55, H * 0.5, H * 0.9); x.restore(); }
+    const v = x.createLinearGradient(0, H * 0.55, 0, H); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.55)'); x.fillStyle = v; x.fillRect(0, 0, W, H);
+    tileCache.set(key, c); return c;
+  }
+  function randomTileCanvas() {
+    const c = document.createElement('canvas'); c.width = 320; c.height = 240; const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 320, 240); g.addColorStop(0, '#5a5a6e'); g.addColorStop(1, '#22222e'); x.fillStyle = g; x.fillRect(0, 0, 320, 240);
+    x.fillStyle = 'rgba(255,255,255,.9)'; x.font = '900 150px Rubik, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('?', 160, 120); return c;
+  }
+  function announce(text) {
+    if (!settings.sfx || !window.speechSynthesis) return;
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; u.pitch = 0.6; u.volume = 0.9; speechSynthesis.speak(u); } catch (e) { /* no speech */ }
+  }
+  const PANEL_COL = ['#d63a2f', '#2d74d6', '#e0b414', '#25a35a'];
+  function rulesSummary() { return (rules.mode === 'stock' ? `STOCK · ${rules.stocks}` : `TIME · ${rules.time}:00`) + ` · ITEMS ${String(rules.items).toUpperCase()}${rules.teams ? ' · TEAMS' : ''}`; }
+
+  /* opts: { mode:'versus'|'single', title, he, onDone(slotsOrHero), back, extraTop } */
+  function selectScreen(opts) {
     state.scene = 'menu'; touchEl.classList.add('hidden');
-    const n = el(`<div class="screen">
-      <div class="hdr"><button class="btn small" data-nav data-back>← Back</button><h2>Choose Your Hero <span class="he">בְּחַר גִּבּוֹר</span></h2><button class="btn small" data-nav data-random>🎲 Random</button></div>
-      <div class="grid" id="grid"></div>
-      <div class="slots" id="slots"></div>
-      <div class="rules" id="rules"></div>
+    const single = opts.mode === 'single';
+    const sel = single ? [{ type: 'human', hero: opts.initial || null, device: 'any', level: 4, team: 0 }] : slots;
+    let preview = null;
+    const n = el(`<div class="screen css-screen">
+      <div class="css-top"><button class="css-back" data-nav data-back aria-label="Back">←</button>
+        <div class="css-title">${esc(opts.title)} <span class="he">${opts.he}</span></div>
+        ${opts.extraTop || ''}
+        ${single ? '' : `<button class="css-chip" data-nav data-rules>${rulesSummary()}</button>`}
+      </div>
+      <div class="roster" id="roster"></div>
+      <div class="panels ${single ? 'single' : ''}" id="panels"></div>
+      <button class="ready hidden" data-nav id="ready"><span>READY TO FIGHT</span><small class="he">!הִכּוֹנוּ לַקְּרָב</small></button>
     </div>`);
-    const grid = n.querySelector('#grid');
-    HEROES.forEach(h => {
-      const c = el(`<div class="card" tabindex="0" data-nav data-hero="${h.id}"><div class="picks"></div>${h.guest ? '<span class="guest">GUEST</span>' : ''}<div class="nm">${esc(h.name)}<span class="he">${h.he}</span></div></div>`);
-      c.insertBefore(heroCanvas(h, 100, 92), c.querySelector('.nm'));
-      grid.appendChild(c);
+    const roster = n.querySelector('#roster');
+    const tiles = [...HEROES, { id: 'random', name: 'Random', he: 'אַקְרַאי' }];
+    tiles.forEach(h => {
+      const t = el(`<div class="tile" tabindex="0" data-nav data-hero="${h.id}"><div class="tname"><span>${esc(h.id === 'random' ? 'RANDOM' : h.name.replace(/ ben .*| bin .*| HaMelech| HaGibor| HaNavi| Avinu| Rabbeinu|The | of Prague/g, '').toUpperCase())}</span></div><div class="tokens"></div>${h.guest ? '<i class="tg">GUEST</i>' : ''}${single && cleared[h.id] ? '<i class="tg star">⭐</i>' : ''}</div>`);
+      t.insertBefore(h.id === 'random' ? randomTileCanvas() : tileCanvas(h), t.firstChild);
+      roster.appendChild(t);
+      const hov = () => { if (!sel[activeIdx()] || sel[activeIdx()].hero) return; preview = h.id; renderPanels(); };
+      t.addEventListener('mouseenter', hov); t.addEventListener('focus', hov);
+      t.addEventListener('mouseleave', () => { preview = null; renderPanels(); });
+      t.addEventListener('click', () => pick(activeIdx(), h.id));
     });
-    function renderSlots() {
-      autoDevices();
-      const sw = n.querySelector('#slots'); sw.innerHTML = '';
-      slots.forEach((s, i) => {
-        const hero = s.hero ? HERO_BY_ID[s.hero] : null;
-        const d = el(`<div class="slot ${i === activeSlot ? 'active' : ''} ${s.type === 'off' ? 'off' : ''}" style="border-color:${i === activeSlot ? '' : 'transparent'}">
-          <div class="pl" style="color:${ENG.PCOLORS[i]}">P${i + 1} · <button class="mini" data-nav data-type="${i}" style="width:auto">${s.type === 'human' ? '🙂 Player' : s.type === 'cpu' ? '🤖 CPU' : '— Off'}</button></div>
-          <div class="hn">${hero ? esc(hero.name) : s.type === 'off' ? '' : '<i>Random</i>'}</div>
-          ${s.type === 'human' ? `<select data-nav data-dev="${i}">${['any', 'kbAll', 'kb1', 'kb2', 'touch', 'pad0', 'pad1', 'pad2', 'pad3'].map(dv => `<option value="${dv}" ${dv === s.device ? 'selected' : ''}>${DEVICE_LABEL[dv]}</option>`).join('')}</select>` : ''}
-          ${s.type === 'cpu' ? `<select data-nav data-lvl="${i}">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => `<option value="${l}" ${l === s.level ? 'selected' : ''}>CPU level ${l}</option>`).join('')}</select>` : ''}
-          ${rules.teams && s.type !== 'off' ? `<button class="mini" data-nav data-team="${i}" style="background:${s.team ? '#2e6fb3' : '#b33a2e'}">Team ${s.team ? 'Blue' : 'Red'}</button>` : ''}
-        </div>`);
-        if (hero) d.insertBefore(heroCanvas(hero, 120, 80), d.querySelector('.hn'));
-        d.addEventListener('click', (e) => { if (e.target.closest('select,button')) return; activeSlot = i; renderSlots(); });
-        sw.appendChild(d);
-      });
-      sw.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => { const s = slots[+b.dataset.type]; s.type = s.type === 'human' ? 'cpu' : s.type === 'cpu' ? 'off' : 'human'; activeSlot = +b.dataset.type; Audio.play('menu'); renderSlots(); }));
-      sw.querySelectorAll('[data-dev]').forEach(b => b.addEventListener('change', () => { slots[+b.dataset.dev].device = b.value; }));
-      sw.querySelectorAll('[data-lvl]').forEach(b => b.addEventListener('change', () => { slots[+b.dataset.lvl].level = +b.value; }));
-      sw.querySelectorAll('[data-team]').forEach(b => b.addEventListener('click', () => { const s = slots[+b.dataset.team]; s.team = s.team ? 0 : 1; renderSlots(); }));
-      // picks on cards
-      grid.querySelectorAll('.card').forEach(c => {
-        const p = c.querySelector('.picks'); p.innerHTML = '';
-        slots.forEach((s, i) => { if (s.type !== 'off' && s.hero === c.dataset.hero) p.appendChild(el(`<span class="pick" style="background:${ENG.PCOLORS[i]}">P${i + 1}</span>`)); });
-      });
-      store.set('slots', slots);
-    }
-    function renderRules() {
-      const r = n.querySelector('#rules');
-      r.innerHTML = `
-        <label>Rules<select data-nav data-r="mode"><option value="stock">Stock</option><option value="time">Time</option></select></label>
-        ${rules.mode === 'stock' ? `<label>Stocks<select data-nav data-r="stocks">${[1, 2, 3, 4, 5].map(v => `<option value="${v}">${v}</option>`).join('')}</select></label>` : `<label>Minutes<select data-nav data-r="time">${[1, 2, 3, 5, 7].map(v => `<option value="${v}">${v}</option>`).join('')}</select></label>`}
-        <label>Items<select data-nav data-r="items"><option value="off">Off</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
-        <label>Ruach Orb (Final)<select data-nav data-r="finals"><option value="true">On</option><option value="false">Off</option></select></label>
-        <label>Teams<select data-nav data-r="teams"><option value="false">Free for all</option><option value="true">Teams</option></select></label>
-        <label>Stage hazards<select data-nav data-r="hazards"><option value="true">On</option><option value="false">Off</option></select></label>
-        <button class="btn gold" data-nav data-go>Choose Stage →</button>`;
-      r.querySelectorAll('[data-r]').forEach(s => {
-        s.value = String(rules[s.dataset.r]);
-        s.addEventListener('change', () => { const k = s.dataset.r; let v = s.value; if (v === 'true' || v === 'false') v = v === 'true'; else if (!isNaN(+v)) v = +v; rules[k] = v; store.set('rules', rules); renderRules(); renderSlots(); });
-      });
-      r.querySelector('[data-go]').addEventListener('click', () => {
-        const act = slots.filter(s => s.type !== 'off');
-        if (act.length < 2) { alert('You need at least two fighters. Set another slot to Player or CPU.'); return; }
-        if (rules.teams && new Set(act.map(s => s.team)).size < 2) { alert('Put fighters on both teams.'); return; }
-        Audio.play('select'); stageScreen();
-      });
-    }
-    grid.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => {
+    function activeIdx() { return single ? 0 : activeSlot; }
+    function pick(i, id) {
       Audio.init(); Audio.play('select');
-      const s = slots[activeSlot]; if (s.type === 'off') s.type = activeSlot === 0 ? 'human' : 'cpu';
-      s.hero = c.dataset.hero;
-      // advance to next human/cpu slot without a hero
-      for (let k = 1; k <= 4; k++) { const j = (activeSlot + k) % 4; if (slots[j].type !== 'off' && !slots[j].hero) { activeSlot = j; break; } }
-      renderSlots();
-    }));
-    click(n, '[data-back]', () => titleScreen());
-    click(n, '[data-random]', () => { slots.forEach(s => { if (s.type !== 'off') s.hero = HEROES[Math.floor(Math.random() * HEROES.length)].id; }); renderSlots(); });
-    renderSlots(); renderRules();
-    show(n, titleScreen);
+      const s = sel[i]; if (s.type === 'off') s.type = i === 0 ? 'human' : 'cpu';
+      s.hero = id === 'random' ? 'random' : id; preview = null;
+      const hero = HERO_BY_ID[id]; announce(hero ? hero.name.replace(/HaMelech/, 'Ha-Melech') : 'Random');
+      const tile = roster.querySelector(`[data-hero="${id}"]`); if (tile) { tile.classList.remove('flash'); void tile.offsetWidth; tile.classList.add('flash'); }
+      if (!single) for (let k = 1; k <= 4; k++) { const j = (activeSlot + k) % 4; if (slots[j].type !== 'off' && !slots[j].hero) { activeSlot = j; break; } }
+      renderAll();
+    }
+    function heroOf(s) { return s.hero && s.hero !== 'random' ? HERO_BY_ID[s.hero] : null; }
+    function renderTokens() {
+      roster.querySelectorAll('.tokens').forEach(b => b.innerHTML = '');
+      sel.forEach((s, i) => {
+        if (s.type === 'off' || !s.hero) return;
+        const tile = roster.querySelector(`[data-hero="${s.hero}"]`); if (!tile) return;
+        const tk = el(`<div class="token ${s.type === 'cpu' ? 'cpu' : ''}" style="--pc:${PANEL_COL[i]}" data-slot="${i}">${s.type === 'cpu' ? 'CPU' : 'P' + (i + 1)}</div>`);
+        tk.addEventListener('pointerdown', (e) => startDrag(e, i));
+        tile.querySelector('.tokens').appendChild(tk);
+      });
+    }
+    function renderPanels() {
+      if (!single) autoDevices();
+      const box = n.querySelector('#panels'); box.innerHTML = '';
+      sel.forEach((s, i) => {
+        const showId = s.hero || (i === activeIdx() ? preview : null);
+        const hero = showId && showId !== 'random' ? HERO_BY_ID[showId] : null;
+        const off = s.type === 'off', cpu = s.type === 'cpu';
+        const col = off ? '#2a2638' : cpu ? '#6d6d78' : PANEL_COL[i];
+        const name = hero ? hero.name : showId === 'random' ? 'Random' : '';
+        const d = el(`<div class="pnl ${off ? 'off' : ''} ${i === activeIdx() && !single ? 'act' : ''} ${!s.hero && hero ? 'pv' : ''}" style="--pc:${col};--pl:${PANEL_COL[i]}">
+          <div class="pbg"></div>
+          <div class="pnum">${off ? '' : cpu ? 'CPU' : 'P' + (i + 1)}</div>
+          <div class="prender"></div>
+          <div class="pname"><b>${esc(name.toUpperCase())}</b>${hero ? `<span class="he">${hero.he}</span>` : ''}${off ? `<em>P${i + 1} · N/A</em>` : !name ? '<em>Choose a hero</em>' : ''}</div>
+          <div class="pctl">
+            ${single ? '' : `<button class="pill" data-nav data-type="${i}">${off ? '+ JOIN' : cpu ? 'CPU' : 'HMN'}</button>`}
+            ${!off && !cpu && !single ? `<select class="pill" data-nav data-dev="${i}">${['any', 'kbAll', 'kb1', 'kb2', 'touch', 'pad0', 'pad1', 'pad2', 'pad3'].map(dv => `<option value="${dv}" ${dv === s.device ? 'selected' : ''}>${DEVICE_LABEL[dv]}</option>`).join('')}</select>` : ''}
+            ${cpu ? `<select class="pill" data-nav data-lvl="${i}">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => `<option value="${l}" ${l === s.level ? 'selected' : ''}>LV ${l}</option>`).join('')}</select>` : ''}
+            ${rules.teams && !off && !single ? `<button class="pill" data-nav data-team="${i}" style="background:${s.team ? '#2e6fb3' : '#b33a2e'}">${s.team ? 'BLUE' : 'RED'}</button>` : ''}
+          </div></div>`);
+        if (hero) { const r = d.querySelector('.prender'); r.appendChild(heroCanvas(hero, 150, 200)); }
+        else if (showId === 'random') d.querySelector('.prender').appendChild(randomTileCanvas());
+        d.addEventListener('click', (e) => { if (e.target.closest('select,button') || single) return; activeSlot = i; if (s.type === 'off') s.type = 'cpu'; renderAll(); });
+        box.appendChild(d);
+      });
+      box.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => { const s = slots[+b.dataset.type]; s.type = s.type === 'human' ? 'cpu' : s.type === 'cpu' ? 'off' : 'human'; if (s.type !== 'off') activeSlot = +b.dataset.type; Audio.play('menu'); renderAll(); }));
+      box.querySelectorAll('[data-dev]').forEach(b => b.addEventListener('change', () => { slots[+b.dataset.dev].device = b.value; store.set('slots', slots); }));
+      box.querySelectorAll('[data-lvl]').forEach(b => b.addEventListener('change', () => { slots[+b.dataset.lvl].level = +b.value; store.set('slots', slots); }));
+      box.querySelectorAll('[data-team]').forEach(b => b.addEventListener('click', () => { const s = slots[+b.dataset.team]; s.team = s.team ? 0 : 1; renderAll(); }));
+    }
+    function isReady() {
+      const act = sel.filter(s => s.type !== 'off');
+      if (single) return !!sel[0].hero;
+      return act.length >= 2 && act.every(s => s.hero) && (!rules.teams || new Set(act.map(s => s.team)).size > 1);
+    }
+    function renderAll() {
+      renderTokens(); renderPanels();
+      const r = n.querySelector('#ready'), was = !r.classList.contains('hidden'), now = isReady();
+      r.classList.toggle('hidden', !now);
+      if (now && !was) { Audio.play('go'); if (!isTouch) r.focus({ preventScroll: true }); }
+      if (!single) store.set('slots', slots);
+    }
+    // drag tokens like Smash: drop a token on any hero, or off the roster to clear the pick
+    let drag = null;
+    function startDrag(e, i) {
+      e.preventDefault(); e.stopPropagation();
+      const ghost = el(`<div class="token ghost ${sel[i].type === 'cpu' ? 'cpu' : ''}" style="--pc:${PANEL_COL[i]}">${sel[i].type === 'cpu' ? 'CPU' : 'P' + (i + 1)}</div>`);
+      document.body.appendChild(ghost); drag = { i, ghost }; moveDrag(e);
+      window.addEventListener('pointermove', moveDrag); window.addEventListener('pointerup', endDrag, { once: true });
+    }
+    function moveDrag(e) { if (!drag) return; drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px'; }
+    function endDrag(e) {
+      window.removeEventListener('pointermove', moveDrag);
+      if (!drag) return; drag.ghost.remove();
+      drag.ghost.style.display = 'none';
+      const t = document.elementFromPoint(e.clientX, e.clientY), tile = t && t.closest('.tile');
+      const i = drag.i; drag = null;
+      if (!single) activeSlot = i;
+      if (tile) pick(i, tile.dataset.hero); else { sel[i].hero = null; renderAll(); }
+    }
+    n.querySelector('#ready').addEventListener('click', () => {
+      Audio.play('select');
+      if (single) { const h = sel[0].hero === 'random' ? HEROES[Math.floor(Math.random() * HEROES.length)] : HERO_BY_ID[sel[0].hero]; opts.onDone(h); }
+      else opts.onDone();
+    });
+    click(n, '[data-back]', opts.back);
+    const rb = n.querySelector('[data-rules]'); if (rb) rb.addEventListener('click', () => rulesModal(() => { rb.textContent = rulesSummary(); renderAll(); }));
+    if (opts.wire) opts.wire(n);
+    renderAll();
+    show(n, opts.back);
+    const first = roster.querySelector('.tile'); if (first && !isTouch) first.focus({ preventScroll: true });
+  }
+
+  function rulesModal(onClose) {
+    const m = el(`<div class="screen dim" style="z-index:12"><div class="panel"><h2>Rules <span class="he" style="color:var(--gold2)">חֻקִּים</span></h2>
+      <div class="row">Win by<select data-nav data-r="mode"><option value="stock">Stock</option><option value="time">Time</option></select></div>
+      <div class="row">Stocks<select data-nav data-r="stocks">${[1, 2, 3, 4, 5].map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
+      <div class="row">Minutes<select data-nav data-r="time">${[1, 2, 3, 5, 7].map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
+      <div class="row">Items<select data-nav data-r="items"><option value="off">Off</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+      <div class="row">Ruach Orb (Final Strike)<select data-nav data-r="finals"><option value="true">On</option><option value="false">Off</option></select></div>
+      <div class="row">Teams<select data-nav data-r="teams"><option value="false">Free for all</option><option value="true">Teams</option></select></div>
+      <div class="row">Stage hazards<select data-nav data-r="hazards"><option value="true">On</option><option value="false">Off</option></select></div>
+      <button class="btn gold center default" data-nav data-x style="width:100%;margin-top:12px">Done</button></div></div>`);
+    m.querySelectorAll('[data-r]').forEach(s => {
+      s.value = String(rules[s.dataset.r]);
+      s.addEventListener('change', () => { let v = s.value; if (v === 'true' || v === 'false') v = v === 'true'; else if (!isNaN(+v)) v = +v; rules[s.dataset.r] = v; store.set('rules', rules); });
+    });
+    const prevBack = state.screenBack;
+    const close = () => { m.remove(); state.screenBack = prevBack; onClose && onClose(); };
+    m.querySelector('[data-x]').addEventListener('click', close);
+    ui.appendChild(m); state.screenBack = close;
+    if (!isTouch) m.querySelector('[data-x]').focus();
+  }
+
+  function versusScreen() {
+    selectScreen({ mode: 'versus', title: 'VERSUS', he: 'בְּחַר גִּבּוֹר', back: titleScreen, onDone: stageScreen });
   }
 
   function stageScreen() {
@@ -242,7 +338,7 @@
     const go = (id) => {
       Audio.play('select');
       const players = slots.filter(s => s.type !== 'off').map((s) => ({
-        hero: s.hero ? HERO_BY_ID[s.hero] : HEROES[Math.floor(Math.random() * HEROES.length)], cpu: s.type === 'cpu' ? s.level : 0, device: s.type === 'human' ? s.device : null, team: s.team
+        hero: s.hero && s.hero !== 'random' ? HERO_BY_ID[s.hero] : HEROES[Math.floor(Math.random() * HEROES.length)], cpu: s.type === 'cpu' ? s.level : 0, device: s.type === 'human' ? s.device : null, team: s.team
       }));
       startMatch({ stage: STAGE_BY_ID[id], players, stocks: rules.mode === 'stock' ? rules.stocks : 99, time: rules.mode === 'time' ? rules.time * 60 : 0, items: rules.items, teams: rules.teams, hazards: rules.hazards, finals: rules.finals, mode: 'versus' });
     };
@@ -423,21 +519,12 @@
   ];
   function classicPick() { heroPicker('Classic Journey', 'מַסָּע', (hero, diff) => { state.classic = { hero, round: 0, diff, continues: 0 }; classicRound(); }, true); }
   function heroPicker(title, he, onPick, withDiff) {
-    state.scene = 'menu';
     let diff = store.get('diff', 0);
-    const n = el(`<div class="screen">
-      <div class="hdr"><button class="btn small" data-nav data-back>← Back</button><h2>${title} <span class="he">${he}</span></h2>
-      ${withDiff ? `<select data-nav id="diff" style="font:inherit;background:#2b1d55;color:#fff;border-radius:8px;padding:6px"><option value="-2">Easy</option><option value="0">Normal</option><option value="2">Hard</option><option value="3">Gibor (very hard)</option></select>` : ''}</div>
-      <div class="grid" id="grid"></div></div>`);
-    if (withDiff) { const s = n.querySelector('#diff'); s.value = String(diff); s.addEventListener('change', () => { diff = +s.value; store.set('diff', diff); }); }
-    HEROES.forEach(h => {
-      const c = el(`<div class="card" tabindex="0" data-nav data-hero="${h.id}">${cleared[h.id] ? '<span class="done" title="Journey cleared">⭐</span>' : h.guest ? '<span class="guest">GUEST</span>' : ''}<div class="nm">${esc(h.name)}<span class="he">${h.he}</span></div></div>`);
-      c.insertBefore(heroCanvas(h, 100, 92), c.querySelector('.nm'));
-      c.addEventListener('click', () => { Audio.init(); Audio.play('select'); onPick(h, diff); });
-      n.querySelector('#grid').appendChild(c);
+    selectScreen({
+      mode: 'single', title: title.toUpperCase(), he, back: titleScreen, onDone: (h) => onPick(h, diff),
+      extraTop: withDiff ? `<select class="css-chip" data-nav id="diff"><option value="-2">EASY</option><option value="0">NORMAL</option><option value="2">HARD</option><option value="3">GIBOR</option></select>` : '',
+      wire: (n) => { const s = n.querySelector('#diff'); if (s) { s.value = String(diff); s.addEventListener('change', () => { diff = +s.value; store.set('diff', diff); }); } }
     });
-    click(n, '[data-back]', titleScreen);
-    show(n, titleScreen);
   }
   function classicRound() {
     const C = state.classic, R = JOURNEY[C.round];
@@ -494,7 +581,7 @@
 
   /* ---------- Training ---------- */
   function trainingPick() {
-    heroPicker('Training: pick your hero', 'אִמּוּן', (hero) => {
+    heroPicker('Training', 'אִמּוּן', (hero) => {
       const dummy = HEROES.find(h => h.id !== hero.id && h.id === (state.training && state.training.dummy)) || HEROES[(HEROES.indexOf(hero) + 1) % HEROES.length];
       state.training = { dummy: dummy.id };
       startMatch({ stage: STAGE_BY_ID.midbar, players: [{ hero, cpu: 0, device: 'any', team: 0 }, { hero: dummy, cpu: 5, team: 1 }], stocks: 99, time: 0, items: 'off', teams: false, hazards: false, finals: false, mode: 'training', cpuMode: 'stand', noCountdown: true, itemList: [] }, () => {});

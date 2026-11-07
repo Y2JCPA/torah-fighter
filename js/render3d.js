@@ -788,17 +788,20 @@ const R3D = (() => {
       studio = { scene: new T.Scene(), cam: new T.PerspectiveCamera(26, 1, 10, 5000) };
       studio.scene.add(new T.HemisphereLight('#ffffff', '#554466', 1.8));
       const d = new T.DirectionalLight('#ffffff', 2.2); d.position.set(300, 500, 600); studio.scene.add(d);
+      const rim = new T.DirectionalLight('#ffe2a0', 1.6); rim.position.set(-500, 300, -300); studio.scene.add(rim);
     }
     const R = buildRig(hero); R.root.userData.rig = R;
-    const full = mode === 'full';
-    const Pz = { fa: full ? 0.15 : 1.3, ba: 1.3, lean: 0, legA: 0.22, legB: -0.18, crouch: 0, spin: 0, bob: 0, tuck: 0, weaponOut: true, eyes: 'o' };
+    const full = mode === 'full', bust = mode === 'bust';
+    const Pz = { fa: full ? 0.15 : bust ? -2.35 : 1.3, ba: bust ? 0.75 : 1.3, lean: bust ? 0.05 : 0, legA: 0.22, legB: -0.18, crouch: 0, spin: 0, bob: 0, tuck: 0, weaponOut: true, eyes: 'o' };
     poseRig(R, null, { t: 0 }, Pz);
     if (full) { for (const k in R.weapons) R.weapons[k].rotation.z = -1.2; }
+    else if (bust) { for (const k in R.weapons) R.weapons[k].rotation.z = 0.55; }
     else { for (const k in R.weapons) R.weapons[k].visible = false; if (R.bowBack) R.bowBack.visible = false; }
-    R.yaw.rotation.y = full ? -0.95 : -1.05; studio.scene.add(R.root); R.root.updateMatrixWorld(true);
-    const w = mode === 'full' ? 220 : 160, h = mode === 'full' ? 280 : 160;
+    R.yaw.rotation.y = full ? -0.95 : bust ? -0.85 : -1.05; studio.scene.add(R.root); R.root.updateMatrixWorld(true);
+    const w = full ? 220 : bust ? 320 : 160, h = full ? 280 : bust ? 240 : 160;
     const cam = studio.cam; cam.aspect = w / h;
     if (mode === 'full') { const H = hero.h * 1.22; const dist = (H / 2) / Math.tan(13 * Math.PI / 180); cam.position.set(0, hero.h * 0.52, dist); cam.lookAt(0, hero.h * 0.5, 0); }
+    else if (bust) { const hy = R.head.getWorldPosition(new T.Vector3()); const sz = R.hr * 5.6; const dist = (sz / 2) / Math.tan(13 * Math.PI / 180); cam.position.set(hy.x + R.hr * 1.2, hy.y - R.hr * 0.6, dist); cam.lookAt(hy.x + R.hr * 0.9, hy.y - R.hr * 1.1, 0); }
     else { const hy = R.head.getWorldPosition(new T.Vector3()); const sz = R.hr * 3.4; const dist = (sz / 2) / Math.tan(13 * Math.PI / 180); cam.position.set(hy.x + R.hr * 0.4, hy.y + R.hr * 0.15, dist); cam.lookAt(hy.x + R.hr * 0.2, hy.y, 0); }
     cam.updateProjectionMatrix();
     renderer.setSize(w, h, false); renderer.setClearColor(0x000000, 0);

@@ -4,6 +4,9 @@ A platform brawler in the style of the classic party fighters, starring the hero
 
 Plain HTML, CSS and JS with no build step. Graphics are **low-poly 3D** (N64-style, cartoon shading with outlines) rendered with a vendored copy of Three.js. A classic 2D renderer is still available under Settings → Graphics. It runs on PC (keyboard or gamepad) and on phones and tablets (touch controls). Open `index.html` through any static server, or turn on GitHub Pages.
 
+## Character select
+The roster is a wall of hero tiles, styled after Smash Ultimate. Each player has a token (P1–P4, or CPU) that sits on their hero; drag it to another tile to switch, or drop it off the roster to clear. Player panels along the bottom show the hero in 3D, the HMN/CPU toggle, controller and CPU level. When everyone has picked, a **READY TO FIGHT** banner appears. The announcer reads out each hero's name, using the browser's speech engine. Rules are behind the chip in the top-right corner.
+
 ## Modes
 - **Versus**: 1–4 fighters, any mix of humans and CPUs (levels 1–9). Stock or time rules, teams, items, stage hazards, and the Ruach Orb for Final Strikes.
 - **Classic Journey**: seven battles across Tanach (Michmash, Elah, a Yericho team battle, Carmel, Yam Suf, Sinai), then a boss fight against **Golyat**, who has stamina instead of percent. Beat it with a hero to earn that hero a ⭐.
@@ -53,4 +56,4 @@ Two players on one keyboard: P1 uses WASD with F/G/H and Left Shift. P2 uses the
 | `js/ui.js` | menus, modes, game loop |
 | `js/input.js`, `js/audio.js` | keyboard/gamepad/touch; synthesized sound and music |
 
-`node tests/smoke.js` (with `python3 -m http.server 8123` running) loads the game in headless Chromium, simulates a CPU match on every stage plus the boss fight, and saves screenshots. `node tests/screens.js <dir>` renders several stages in 3D. `node tools/check-sources.js` checks every source ref against the Sefaria API.
+`node tests/smoke.js` (with `python3 -m http.server 8123` running) loads the game in headless Chromium, simulates a CPU match on every stage plus the boss fight, and saves screenshots. `node tests/screens.js <dir>` renders several stages in 3D. `node tests/select.js <dir>` exercises the character select screen. `node tools/check-sources.js` checks every source ref against the Sefaria API.
