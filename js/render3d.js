@@ -332,7 +332,14 @@ const R3D = (() => {
     return g;
   }
 
+  /* Heroes are skinned KayKit models when Chars3D has them loaded (js/chars3d.js); otherwise the sculpted procedural rig below. */
+  const CH = typeof Chars3D !== 'undefined' ? Chars3D : null;
   function buildRig(hero) {
+    const S = CH && CH.build(hero);
+    if (S) { addExtras(S, hero); return S; }
+    return buildRigProc(hero);
+  }
+  function buildRigProc(hero) {
     const L = hero.look, H = hero.h, k = H / 90, st = STYLE[hero.id] || {};
     const wd = Math.max(0.88, Math.min(1.55, hero.w / hero.h * 90 / 46));
     const tall = hero.id === 'moshe';
@@ -452,7 +459,13 @@ const R3D = (() => {
     if (L.glow) { const s = new T.Sprite(new T.SpriteMaterial({ map: TEX.glow, color: '#fff2a8', transparent: true, opacity: 0.45, depthWrite: false, blending: T.AdditiveBlending })); s.scale.set(hr * 6, hr * 6, 1); s.position.z = -hr * 1.5; head.add(s); }
     if (L.weapon === 'bow' || L.weapon === 'bow2') { R.bowBack = buildWeapon('bowback', k); R.bowBack.position.set(-0.1 * H, shY - 0.14 * H, 0); R.bowBack.rotation.z = 2.0; leanG.add(R.bowBack); }
 
-    // extras
+    addExtras(R, hero);
+    root.traverse(o => { if (o.isMesh && o.castShadow === undefined) o.castShadow = true; });
+    return R;
+  }
+  // shield bubble, ice block, halo, final glow, special-move props and the swing trail: shared by both kinds of rig
+  function addExtras(R, hero) {
+    const root = R.root, H = R.H, k = R.k;
     const ex = (o) => { o.visible = false; root.add(o); return o; };
     R.shield = ex(new T.Mesh(new T.SphereGeometry(1, 32, 24), new T.MeshPhysicalMaterial({ color: '#ffffff', transparent: true, opacity: 0.3, depthWrite: false, roughness: 0.05, clearcoat: 1, emissive: '#222222' }))); R.shield.position.y = H / 2;
     R.reflect = ex(new T.Mesh(new T.TorusGeometry(1, 0.035, 6, 48), new T.MeshBasicMaterial({ color: '#ffe680', transparent: true, opacity: 0.85 }))); R.reflect.position.y = H / 2;
@@ -471,18 +484,18 @@ const R3D = (() => {
       vertexShader: 'attribute float ta; varying float vA; void main(){ vA = ta; gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }',
       fragmentShader: 'uniform vec3 col; varying float vA; void main(){ gl_FragColor = vec4(col * vA * 1.6, vA);\n #include <tonemapping_fragment>\n #include <colorspace_fragment>\n }' });
     R.trailMesh = new T.Mesh(tg, tm); R.trailMesh.frustumCulled = false; R.trailMesh.matrixAutoUpdate = false; R.trailMesh.matrixWorldAutoUpdate = false; R.trailMesh.renderOrder = 6; root.add(R.trailMesh); R.TN = TN;
-    root.traverse(o => { if (o.isMesh && o.castShadow === undefined) o.castShadow = true; });
-    return R;
   }
 
   function weaponFor(R, kind) {
     if (!kind) return null;
+    if (R.skinned) return CH.weaponFor(R, kind);
     let w = R.weapons[kind];
     if (!w) { w = buildWeapon(kind, R.k * (R.hero.boss ? 0.8 : 1)); w.visible = false; R.armF.hand.add(w); R.weapons[kind] = w; }
     return w;
   }
 
   function poseRig(R, f, W, P, kOverride) {
+    if (R.skinned) return CH.pose(R, f, W, P);
     const H = R.H;
     const k = kOverride ?? (f && (f.move || f.hitstun > 0 || f.state === 'roll') ? 0.6 : 0.32);
     const lz = (o, t) => { o.rotation.z += (t - o.rotation.z) * k; };
@@ -664,7 +677,7 @@ const R3D = (() => {
   const SOLDIER = { id: 'soldier', h: 90, w: 46, arch: 'fists', look: { skin: '#6b4a33', robe: '#2c2c3a', robe2: '#3d3d50', beard: '#1d1d1d', hair: '#1d1d1d', head: 'kerchief', headColor: '#3a3a4a', weapon: 'none', beardLen: 0.6 } };
   function buildFinal(F) {
     const g = new T.Group(), kind = F.fin.kind;
-    if (kind === 'sweep') { g.userData.men = []; for (let i = 0; i < 9; i++) { const R = buildRig(SOLDIER); g.add(R.root); const w = weaponFor(R, F.fin.sprite === 'shofars' ? 'shofar' : (i % 2 ? 'torch' : 'spear')); w.visible = true; R.fixedWeapon = w; g.userData.men.push(R); } }
+    if (kind === 'sweep') { g.userData.men = []; for (let i = 0; i < 9; i++) { const R = buildRig(SOLDIER); R.runOff = i * 0.37; g.add(R.root); R.fixedKind = F.fin.sprite === 'shofars' ? 'shofar' : (i % 2 ? 'torch' : 'spear'); const w = weaponFor(R, R.fixedKind); w.visible = true; R.fixedWeapon = w; g.userData.men.push(R); } }
     if (kind === 'flood') { const m = new T.MeshStandardMaterial({ color: '#2a7fd4', transparent: true, opacity: 0.82, emissive: new T.Color('#06305e') }); for (const s of [-1, 1]) { const w = new T.Mesh(G.box(1, 1100, 700), m); w.userData.s = s; g.add(w); } }
     if (kind === 'pillars') for (const s of [-1, 1]) {
       const pv = new T.Group(); pv.position.set(s * 560, 0, -30); pv.userData.s = s; g.add(pv);
@@ -708,7 +721,7 @@ const R3D = (() => {
       if (g.userData.beam) { const b = g.userData.beam; b.position.set(f.x + F.dir * 1300, -f.cy, 0); b.material.opacity = Math.sin(Math.min(1, p * 2) * Math.PI) * 0.75; }
     }
   }
-  function poseRigBasic(R, P, W) { poseRig(R, null, W, P); for (const key in R.weapons) R.weapons[key].visible = R.weapons[key] === R.fixedWeapon; }
+  function poseRigBasic(R, P, W) { if (R.skinned) { CH.pose(R, null, W, { clip: 'Running_A', time: (W.t * 0.021 + R.runOff) % 0.8, tilt: -0.1, weapon: R.fixedKind || null }); return; } poseRig(R, null, W, P); for (const key in R.weapons) R.weapons[key].visible = R.weapons[key] === R.fixedWeapon; }
 
   /* ---------- stage & scenery ---------- */
   const stageCache = new Map();
@@ -1047,11 +1060,11 @@ const R3D = (() => {
       const root = R.root;
       if (f.dead) { root.visible = false; continue; }
       const PS = Art.pose(f, W.t);
-      poseRig(R, f, W, PS);
       let sx = f.damageShake > 0 && f.hitlag > 0 ? (Math.random() - 0.5) * 6 : 0;
       if (PS.shake) sx += (Math.random() - 0.5) * PS.shake * 2;
       root.position.set(f.x + sx, -f.y - (f.stun && f.stun.type === 'buried' ? f.h * 0.45 : 0), 0);
-      R.yaw.scale.x = f.facing; R.yaw.rotation.y = -0.8 * f.facing;
+      R.yaw.scale.x = f.facing; R.yaw.rotation.y = (R.skinned ? -0.62 : -0.8) * f.facing;
+      poseRig(R, f, W, PS);
       root.updateMatrixWorld(true); updateTrail(R, f);
       const blink = f.invuln > 0 && f.invuln < 9000 && !f.onHalo && Math.floor(W.t / 3) % 2 === 0;
       R.yaw.visible = !blink;
@@ -1314,6 +1327,23 @@ void main(){
     }
     const R = buildRig(hero); R.root.userData.rig = R;
     const full = mode === 'full', bust = mode === 'bust';
+    if (R.skinned) { // skinned heroes: a still from the idle clip, turned three-quarters to the camera
+      CH.pose(R, null, { t: 0 }, { clip: full ? R.cfg.idle : 'Idle', time: 0.3, weapon: full || (bust && !CH.isLong(defaultWeaponFor(hero))) ? undefined : null });
+      R.yaw.rotation.y = full ? -0.85 : bust ? -0.8 : -1.0; studio.scene.add(R.root); R.root.updateMatrixWorld(true);
+      const w = full ? 260 : bust ? 360 : 180, h = full ? 330 : bust ? 270 : 180;
+      const cam = studio.cam; cam.aspect = w / h; const tn = Math.tan(13 * Math.PI / 180);
+      const hy = R.head.getWorldPosition(new T.Vector3()), hr = R.hr;
+      if (full) { const Hh = hero.h * 1.3; cam.position.set(hero.h * 0.04, hero.h * 0.56, (Hh / 2) / tn); cam.lookAt(hero.h * 0.04, hero.h * 0.54, 0); }
+      else if (bust) { const sz = hr * 4.1; cam.position.set(hy.x - hr * 0.1, hy.y + hr * 0.2, hy.z + (sz / 2) / tn); cam.lookAt(hy.x - hr * 0.1, hy.y - hr * 0.1, hy.z); }
+      else { const sz = hr * 3.7; cam.position.set(hy.x, hy.y + hr * 0.4, hy.z + (sz / 2) / tn); cam.lookAt(hy.x, hy.y + hr * 0.32, hy.z); }
+      cam.updateProjectionMatrix();
+      renderer.setRenderTarget(null); renderer.setSize(w, h, false); renderer.setClearColor(0x000000, 0);
+      renderer.render(studio.scene, cam);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(renderer.domElement, 0, 0, w, h);
+      studio.scene.remove(R.root); disposeTree(R.root);
+      renderer.setSize(lastW || 1, lastH || 1, false); renderer.setClearColor(0x000000, 1);
+      snapCache.set(key, c); return c;
+    }
     const Pz = { fa: full ? 0.15 : bust ? -2.35 : 1.3, ba: bust ? 0.75 : 1.3, lean: bust ? 0.05 : 0, legA: 0.22, legB: -0.18, crouch: 0, spin: 0, bob: 0, tuck: 0, weaponOut: true, eyes: 'o' };
     poseRig(R, null, { t: 0 }, Pz, 1);
     if (full) { for (const k in R.weapons) R.weapons[k].rotation.z = -1.2; }
@@ -1364,6 +1394,7 @@ void main(){
     scene = new T.Scene();
     camera = new T.PerspectiveCamera(FOV, 16 / 9, 10, 12000);
     makeTextures(); makeSurfaceTextures(); makeSky(); makePost();
+    if (CH) CH.setup({ T, enhance, buildWeapon, defaultWeapon: defaultWeaponFor, TEX });
     scene.add(sky);
     pmrem = new T.PMREMGenerator(renderer);
     hemi = new T.HemisphereLight('#ffffff', '#444444', 0.6); scene.add(hemi);
@@ -1382,5 +1413,5 @@ void main(){
   }
 
   function debugNaN() { const out = []; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.position) { const a = o.geometry.attributes.position.array; for (let i = 0; i < a.length; i++) if (!isFinite(a[i])) { let path = o.geometry.type; let q = o.parent, d = 0; while (q && d < 4) { path += '<' + (q.type) ; q = q.parent; d++; } out.push(path + ' idx' + i); break; } } }); return out; }
-  return { debugNaN, init, frame, snapshotHero, snapshotStage, get ok() { return ok; }, get quality() { return quality; }, setQuality, setEnabled(v) { if (canvas) canvas.style.display = v ? 'block' : 'none'; } };
+  return { debugNaN, debugInfo() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }; }, init, frame, snapshotHero, snapshotStage, clearSnapshots() { for (const k of [...snapCache.keys()]) if (!k.startsWith('stage:')) snapCache.delete(k); }, get ok() { return ok; }, get quality() { return quality; }, setQuality, setEnabled(v) { if (canvas) canvas.style.display = v ? 'block' : 'none'; } };
 })();

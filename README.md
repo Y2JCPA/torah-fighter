@@ -2,8 +2,8 @@
 
 A platform brawler in the style of the classic party fighters, starring the heroes of Tanach. Every special move comes from a passuk or a gemara. The sources were researched with the [Sefaria](https://www.sefaria.org) API, and the in-game **Sefer** pulls the live Hebrew and English text from Sefaria.
 
-Plain HTML, CSS and JS with no build step. Graphics are **3D**, rendered with a vendored copy of Three.js and everything built in code:
-- **Heroes:** sculpted, with cloth, skin, metal and wood materials, capes that react to movement, curly beards and hair, eyes that blink.
+Plain HTML, CSS and JS with no build step. Graphics are **3D**, rendered with a vendored copy of Three.js:
+- **Heroes:** professionally modelled, skeletally animated characters (the CC0 KayKit Adventurers by Kay Lousberg), recoloured and dressed in code for each hero. Attack animations are time-warped so the swing lands on the exact frame the hitbox goes active. If the models cannot load, the game falls back to its built-in procedural figures.
 - **Stages:** textured stone and grass with grass blowing in the wind, a procedural sky with sun, clouds and stars, and layered hills fading into haze.
 - **Effects:** Smash-style swing trails, hit flashes, and bloom with film tone mapping.
 
@@ -56,9 +56,14 @@ Two players on one keyboard: P1 uses WASD with F/G/H and Left Shift. P2 uses the
 | `js/data.js` | heroes, specials, items, stages and their Sefaria refs |
 | `js/engine.js` | physics, knockback, moves, items, minions, finals, match rules |
 | `js/ai.js` | CPU opponents |
-| `js/render3d.js` | the 3D renderer: procedural low-poly heroes, weapons, stages, effects (Three.js, `js/vendor/three.min.js`) |
+| `js/boot.js` | loads Three.js (ES module build, GLTFLoader, SkeletonUtils from `js/vendor/`) and then the game scripts in order |
+| `js/chars3d.js` | the heroes: loads the skinned KayKit models, recolours and dresses them per hero (beards, headwear, robes), and drives their skeletal animation from the fighter state |
+| `js/render3d.js` | the 3D renderer: weapons, stages, effects, portraits, and the procedural fallback heroes (Three.js) |
 | `js/art.js` | the 2D art (classic mode), the shared animation poses, HUD and overlay |
 | `js/ui.js` | menus, modes, game loop |
 | `js/input.js`, `js/audio.js` | keyboard/gamepad/touch; synthesized sound and music |
 
 `node tests/smoke.js` (with `python3 -m http.server 8123` running) loads the game in headless Chromium, simulates a CPU match on every stage plus the boss fight, and saves screenshots. `node tests/screens.js <dir>` renders several stages in 3D. `node tests/select.js <dir>` exercises the character select screen. `node tools/check-sources.js` checks every source ref against the Sefaria API.
+
+## Credits
+The hero models and their animations are the **KayKit Adventurers Character Pack** by [Kay Lousberg](https://www.kaylousberg.com) (CC0), in `assets/kaykit/` with its licence file. The four models used are shipped with the animation clips stored once (in `Mage.glb`) and shared between them, since they have the same skeleton. Three.js is MIT licensed.

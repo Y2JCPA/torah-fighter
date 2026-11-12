@@ -232,3 +232,10 @@ kbd { background: #2b1d55; border: 1px solid rgba(255, 255, 255, .3); border-bot
   .pnl select[data-dev] { display: none; }
 }
 @media (max-width: 640px) and (min-height: 501px) { .panels { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 34px; } }
+
+/* loading screen (hero models) */
+.screen.loading { justify-content: center; gap: 22px; }
+.screen.loading .logo { margin: 0; }
+.loadtrack { width: min(420px, 70vw); height: 12px; border-radius: 8px; background: rgba(255, 255, 255, .12); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .18); overflow: hidden; }
+#loadbar { width: 4%; height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--gold2), #fff3c0); transition: width .25s ease; }
+.loadmsg { color: var(--muted); margin: 0; font-size: 15px; }

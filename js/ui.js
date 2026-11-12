@@ -25,6 +25,17 @@
     use3D = settings.graphics === '3d' && (R3D.ok || R3D.init(canvas3d));
     canvas3d.style.display = use3D ? 'block' : 'none';
     snapCanvasCache.clear();
+    if (use3D && typeof Chars3D !== 'undefined' && Chars3D.available() && Chars3D.state.status === 'idle') loadHeroes();
+  }
+  // Skinned hero models (js/chars3d.js). Portraits rendered before they arrive are thrown away once they do.
+  let heroesReady = Promise.resolve(false);
+  function loadHeroes() {
+    heroesReady = Chars3D.preload((p) => { const b = document.getElementById('loadbar'); if (b) b.style.width = Math.round(p * 100) + '%'; })
+      .then((ok) => { if (ok) { R3D.clearSnapshots(); snapCanvasCache.clear(); } return ok; });
+    return heroesReady;
+  }
+  function loadingScreen() {
+    show(el('<div class="screen loading"><div class="logo"><div class="he">גִּבּוֹרֵי הַתּוֹרָה</div><h1>TORAH FIGHTER</h1></div><div class="loadtrack"><div id="loadbar"></div></div><p class="loadmsg">Gathering the heroes…</p></div>'));
   }
   const snapCanvasCache = new Map();
   Art.setPortraitHook((c, hero, cx, cy, size, full) => {
@@ -762,6 +773,10 @@
   }
   // test hooks (used by tests/smoke.js)
   window.TF = { get use3D() { return use3D; }, state, startMatch, titleScreen, versusScreen, seferScreen, classicPick, trainingPick, ENG, HEROES, STAGES };
-  titleScreen();
+  const loadingNow = typeof Chars3D !== 'undefined' && Chars3D.state.status === 'loading';
+  // a slow or failed download must never keep the player out: after 12 s the game opens with the procedural heroes
+  const boot = loadingNow ? Promise.race([heroesReady, new Promise(r => setTimeout(() => r(false), 12000))]) : Promise.resolve(false);
+  window.TF.ready = boot.then(() => true);
+  if (loadingNow) { loadingScreen(); boot.then(() => { if (state.scene === 'title' && !state.W) titleScreen(); }); } else titleScreen();
   requestAnimationFrame(frame);
 })();
