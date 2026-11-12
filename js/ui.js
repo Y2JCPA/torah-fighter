@@ -714,7 +714,8 @@
     <tr><td>Grab</td><td>Shield + Attack</td><td>RB or Shield + A</td><td>🛡 + A</td></tr>
     <tr><td>Pause</td><td><kbd>Esc</kbd> / <kbd>P</kbd></td><td>Start</td><td>❚❚</td></tr></table>
     <p style="font-size:13px;color:var(--muted)"><b>Two players on one keyboard:</b> P1 uses <kbd>WASD</kbd> with <kbd>F</kbd> attack, <kbd>G</kbd> special, <kbd>H</kbd> smash, <kbd>Left Shift</kbd> shield. P2 uses the arrows with <kbd>,</kbd> attack, <kbd>.</kbd> special, <kbd>/</kbd> smash, <kbd>Right Shift</kbd> shield (or Numpad 1/2/3/0).<br>
-    <b>Tips:</b> Up + Special is your recovery, so use it to get back to the ledge. Hold down in the air to fast-fall. Press down on a platform to drop through it. Pick up items with Attack; Smash or Shield + Attack throws them.</p>`;
+    <b>Tips:</b> Up + Special is your recovery, so use it to get back to the ledge. Tap Jump for a short hop, hold it for a full jump, and jump again in the air. Hold down in the air to fast-fall. Press down on a platform to drop through it. Pick up items with Attack; Smash or Shield + Attack throws them.<br>
+    <b>Combos:</b> Press Attack three times for a jab combo. Down + Attack and Up + Attack pop opponents into the air: jump after them and attack again. Buttons pressed a moment early are remembered, so you can press the next move before the last one has finished. Press Shield just before you hit the floor after a big hit to land on your feet.</p>`;
   }
   function controlsScreen() {
     const n = el(`<div class="screen dim"><div class="panel" style="width:min(820px,96vw)">${controlsHTML()}<button class="btn center default" data-nav data-b>Back</button></div></div>`);
