@@ -4,7 +4,7 @@ const out = process.argv[2];
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
   const errs = []; p.on('pageerror', e => errs.push(e.stack));
-  await p.goto('http://localhost:8123/index.html'); await p.waitForTimeout(1200);
+  await p.goto((process.env.TF_URL || 'http://localhost:8123') + '/index.html'); await p.waitForTimeout(1200);
   await p.screenshot({ path: out + '/title.png' });
   await p.evaluate(() => TF.versusScreen()); await p.waitForTimeout(400); await p.screenshot({ path: out + '/select.png' });
   // a stage screenshot per stage with 4 CPUs mid-fight

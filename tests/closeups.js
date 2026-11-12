@@ -4,7 +4,7 @@ const out = process.argv[2];
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
   const errs = []; p.on('pageerror', e => errs.push(e.stack));
-  await p.goto('http://localhost:8123/index.html'); await p.waitForTimeout(600);
+  await p.goto((process.env.TF_URL || 'http://localhost:8123') + '/index.html'); await p.waitForTimeout(600);
   const shot = async (stage, ids, name, z = 2.2) => {
     await p.evaluate(([stage, ids]) => { const H = TF.HEROES; TF.startMatch({ stage: TF.STAGES[stage], players: ids.map(i => ({ hero: H[i], cpu: 0, device: 'none' })), stocks: 3, items: 'off', mode: 'versus', noCountdown: true }); }, [stage, ids]);
     await p.waitForTimeout(400);

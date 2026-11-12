@@ -9,7 +9,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/fonts|ERR_|Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
-  await page.goto('http://localhost:8123/index.html');
+  await page.goto((process.env.TF_URL || 'http://localhost:8123') + '/index.html');
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${out}/title.png` });
 
@@ -50,7 +50,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const ctxM = await browser.newContext({ ...devices['iPhone 13 landscape'] });
   const pm = await ctxM.newPage();
   pm.on('pageerror', e => errors.push('mobile pageerror: ' + e.message));
-  await pm.goto('http://localhost:8123/index.html'); await pm.waitForTimeout(800);
+  await pm.goto((process.env.TF_URL || 'http://localhost:8123') + '/index.html'); await pm.waitForTimeout(800);
   await pm.screenshot({ path: `${out}/m_title.png` });
   await pm.evaluate(() => { const H = TF.HEROES; TF.startMatch({ stage: TF.STAGES[6], players: [{ hero: H[6], cpu: 0, device: 'any' }, { hero: H[2], cpu: 5 }], stocks: 3, items: 'high', hazards: true, finals: true, mode: 'versus' }); });
   await pm.waitForTimeout(5000);
