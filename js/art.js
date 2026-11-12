@@ -520,7 +520,22 @@ const Art = (() => {
     switch (e.type) {
       case 'spark': ctx.fillStyle = e.color; ctx.globalAlpha = 1 - p; ctx.fillRect(e.x - 2, e.y - 2, 4, 4); ctx.globalAlpha = 1; break;
       case 'drop': ctx.fillStyle = 'rgba(120,190,255,' + (1 - p) + ')'; ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, TAU); ctx.fill(); break;
-      case 'text': ctx.save(); ctx.globalAlpha = 1 - p * p; ctx.font = `bold ${e.size}px "Trebuchet MS", sans-serif`; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(e.str, e.x, e.y); ctx.fillStyle = e.color; ctx.fillText(e.str, e.x, e.y); ctx.restore(); break;
+      case 'text': { const pop = 1 + Math.max(0, 1 - e.t / 7) * 0.7; ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(-0.05); ctx.scale(pop, pop); ctx.globalAlpha = 1 - p * p; ctx.font = `italic 900 ${e.size}px "Trebuchet MS", sans-serif`; ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(4, e.size * 0.22); ctx.strokeStyle = '#140a06'; ctx.strokeText(e.str, 0, 0); ctx.fillStyle = e.color; ctx.fillText(e.str, 0, 0); ctx.restore(); break; }
+      // newer effect types, drawn simply for the 2D graphics mode (the 3D renderer draws these itself)
+      case 'impact': {
+        const pw = Math.max(0.05, Math.min(1, +e.power || 0.4)), q = 1 - p, eo = 1 - q * q;
+        ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(+e.ang || 0); ctx.globalAlpha = q;
+        ctx.strokeStyle = e.color || '#fff6b0'; ctx.lineCap = 'round'; ctx.lineWidth = 3 + 4 * pw;
+        for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.3, r0 = 16 + (60 + 80 * pw) * eo, r1 = r0 + (26 + 50 * pw) * q; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke(); }
+        ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 0, (10 + 50 * pw * eo) * 0.5, 14 + (50 + 60 * pw) * eo, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#fffbe0'; star(ctx, 0, 0, (14 + 26 * pw) * (0.6 + p)); ctx.restore(); break;
+      }
+      case 'launchtrail': { const pw = +e.power || 0.5; ctx.fillStyle = `rgba(240,240,240,${0.5 * (1 - p)})`; ctx.beginPath(); ctx.arc(e.x, e.y, (8 + 10 * pw) * (1 + p * 1.5), 0, TAU); ctx.fill(); if (p < 0.5 && e.color) { ctx.fillStyle = hexA(e.color, 0.6 * (1 - p * 2)); ctx.beginPath(); ctx.arc(e.x, e.y, 6 + 8 * pw, 0, TAU); ctx.fill(); } break; }
+      case 'shock': { const R = (e.r || 120) * (1 - (1 - p) * (1 - p)); ctx.strokeStyle = `rgba(255,255,255,${1 - p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(e.x, e.y, R, R * 0.18, 0, 0, TAU); ctx.stroke(); ctx.fillStyle = `rgba(220,210,190,${0.6 * (1 - p)})`; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + sd * R * 0.8, e.y - 8, 10 + 12 * p, 0, TAU); ctx.fill(); } break; }
+      case 'jumpring': ctx.strokeStyle = hexA(e.color && e.color.length === 7 ? e.color : '#bfe9ff', 1 - p); ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(e.x, e.y, 14 + 40 * p, 5 + 10 * p, 0, 0, TAU); ctx.stroke(); break;
+      case 'jumpdust': case 'landdust': { const pw = e.type === 'landdust' ? Math.max(0.2, +e.power || 0.5) : 0.4; ctx.fillStyle = `rgba(220,210,190,${0.7 * (1 - p)})`; for (const sd of [-1, 1]) for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.arc(e.x + sd * (6 + e.t * (1.2 + 2.4 * pw) * (1 + i * 0.6)), e.y - 4 - e.t * 0.3 * (1 + i), 5 + e.t * 0.4 + 3 * pw, 0, TAU); ctx.fill(); } break; }
+      case 'dashburst': { const d = e.dir < 0 ? -1 : 1; ctx.strokeStyle = `rgba(255,255,255,${0.8 * (1 - p)})`; ctx.lineWidth = 3; ctx.lineCap = 'round'; for (let i = 0; i < 4; i++) { const yy = e.y - 10 - i * 16, x0 = e.x - d * (10 + 40 * p); ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 - d * (50 - 30 * p), yy); ctx.stroke(); } break; }
+      case 'shieldhit': ctx.strokeStyle = hexA(e.color && e.color.length === 7 ? e.color : '#9cd8ff', 1 - p); ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(e.x, e.y, 34 + 30 * p, 0, TAU); ctx.stroke(); break;
       case 'ring': ctx.strokeStyle = e.color; ctx.globalAlpha = 1 - p; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + e.t * e.grow, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; break;
       case 'hitring': ctx.fillStyle = `rgba(255,255,220,${1 - p})`; star(ctx, e.x, e.y, e.r * (0.6 + p)); break;
       case 'dust': ctx.fillStyle = `rgba(220,210,190,${0.7 * (1 - p)})`; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * (6 + e.t * 1.2), e.y - 4 - e.t * 0.3, 5 + e.t * 0.4, 0, TAU); ctx.fill(); } break;
@@ -530,10 +545,10 @@ const Art = (() => {
       case 'target': ctx.strokeStyle = `rgba(255,120,40,${0.5 + 0.5 * Math.sin(e.t * 0.6)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(e.x, e.y, 30, 8, 0, 0, TAU); ctx.stroke(); break;
       case 'raven': { const x = lerp(e.x, e.tx, p), y = lerp(e.y, e.ty, p) - Math.sin(p * Math.PI) * 30; ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(x, y, 10, 5, 0, 0, TAU); ctx.fill(); const w = Math.sin(e.t * 0.8) * 8; ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x - 14, y - w); ctx.lineTo(x + 2, y); ctx.lineTo(x + 12, y - w); ctx.fill(); ctx.fillStyle = '#d4a65a'; ctx.fillRect(x + 8, y - 2, 6, 4); break; }
       case 'zoomline': break;
-      case 'ko': {
-        ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.ang + Math.PI);
+      case 'koblast': case 'ko': {
+        ctx.save(); ctx.translate(e.x, e.y); ctx.rotate((+e.ang || 0) + Math.PI);
         const len = 600 * Math.min(1, p * 3);
-        const g = ctx.createLinearGradient(0, 0, len, 0); g.addColorStop(0, `rgba(255,255,255,${1 - p})`); g.addColorStop(0.3, hexA(e.color, 0.8 * (1 - p))); g.addColorStop(1, 'rgba(255,255,255,0)');
+        const g = ctx.createLinearGradient(0, 0, len, 0); g.addColorStop(0, `rgba(255,255,255,${1 - p})`); g.addColorStop(0.3, hexA(e.color && e.color.length === 7 ? e.color : '#ffffff', 0.8 * (1 - p))); g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, -90 * (1 - p * 0.5)); ctx.lineTo(len, 90 * (1 - p * 0.5)); ctx.closePath(); ctx.fill();
         ctx.restore(); break;
       }
@@ -743,6 +758,14 @@ const Art = (() => {
   }
 
   /* ---------- HUD ---------- */
+  const hudAnim = new WeakMap(); // fighter -> { d: last damage seen, t: W.t of the last hit, m: pop size }
+  const RAMP = [[0, 255, 255, 255], [35, 255, 232, 96], [75, 255, 158, 44], [120, 255, 62, 40], [190, 170, 10, 26]];
+  function dmgColor(d, k = 1) {
+    let i = 0; while (i < RAMP.length - 2 && d > RAMP[i + 1][0]) i++;
+    const A = RAMP[i], B = RAMP[i + 1], t = Math.max(0, Math.min(1, (d - A[0]) / (B[0] - A[0])));
+    return `rgb(${Math.round(lerp(A[1], B[1], t) * k)},${Math.round(lerp(A[2], B[2], t) * k)},${Math.round(lerp(A[3], B[3], t) * k)})`;
+  }
+  function plate(ctx, x, y, w, h, sk) { ctx.beginPath(); ctx.moveTo(x + sk, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w - sk, y + h); ctx.lineTo(x, y + h); ctx.closePath(); }
   function hud(ctx, W, vw, vh) {
     const n = W.fighters.length;
     const compact = !!W.touchPad;
@@ -750,82 +773,167 @@ const Art = (() => {
     const y0 = compact ? 6 : vh - ch - 10;
     if (compact) { ctx.save(); const sc = 0.72; ctx.translate(vw / 2 * (1 - sc), y0 * (1 - sc)); ctx.scale(sc, sc); }
     W.fighters.forEach((f, i) => {
-      const x0 = vw / 2 - (cw * n) / 2 + i * cw + 6;
-      ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,.5)'; rr(ctx, x0, y0, cw - 12, ch, 12); ctx.fill();
-      ctx.fillStyle = f.color; rr(ctx, x0, y0, 8, ch, 4); ctx.fill();
-      // portrait
-      ctx.save(); ctx.beginPath(); ctx.arc(x0 + 36, y0 + 34, 24, 0, TAU); ctx.fillStyle = shade(f.hero.color, -30); ctx.fill(); ctx.clip(); portrait(ctx, f.hero, x0 + 36, y0 + 36, 34); ctx.restore();
-      if (f.finalReady) { ctx.strokeStyle = '#fff3a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x0 + 36, y0 + 34, 26 + Math.sin(W.t * 0.2) * 2, 0, TAU); ctx.stroke(); }
-      // damage
-      const dmg = Math.floor(f.damage);
-      const red = Math.min(1, f.damage / 160);
-      ctx.font = `bold ${cw > 170 ? 34 : 26}px "Trebuchet MS", sans-serif`; ctx.textAlign = 'right';
-      const col = `rgb(255,${Math.round(255 - red * 200)},${Math.round(255 - red * 230)})`;
-      const shake = f.damageShake > 0 ? (Math.random() - 0.5) * 6 : 0;
-      ctx.lineWidth = 4; ctx.strokeStyle = '#000';
-      let label = f.isBoss ? Math.max(0, Math.ceil(f.hp)) + ' HP' : (f.dead && f.stocks <= 0 ? '—' : dmg + '%');
-      ctx.strokeText(label, x0 + cw - 22 + shake, y0 + 44 + shake); ctx.fillStyle = f.isBoss ? '#ff8080' : col; ctx.fillText(label, x0 + cw - 22 + shake, y0 + 44 + shake);
-      ctx.font = 'bold 11px "Trebuchet MS", sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
-      let nm = f.hero.name.toUpperCase(); const maxW = cw - 84; while (nm.length > 3 && ctx.measureText(nm).width > maxW) nm = nm.slice(0, -1); ctx.fillText(nm, x0 + 66, y0 + 16);
-      // stocks
+      const x0 = vw / 2 - (cw * n) / 2 + i * cw + 6, pw = cw - 12, out = f.dead && f.stocks <= 0;
+      let A = hudAnim.get(f); if (!A) { A = { d: f.damage, t: -99, m: 0 }; hudAnim.set(f, A); }
+      if (f.damage > A.d + 0.01) { A.m = Math.min(1, 0.35 + (f.damage - A.d) / 18); A.t = W.t; }
+      A.d = f.damage;
+      const age = W.t - A.t, pop = age >= 0 && age < 16 ? A.m * Math.pow(1 - age / 16, 2) : 0;
+      ctx.save(); if (out) ctx.globalAlpha = 0.5;
+      // plate: dark slanted panel, player-colour band underneath
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; plate(ctx, x0 + 14, y0 + 13, pw - 12, ch - 10, 10); ctx.fill();
+      const pg = ctx.createLinearGradient(0, y0 + 8, 0, y0 + ch); pg.addColorStop(0, 'rgba(34,30,52,.88)'); pg.addColorStop(1, 'rgba(8,8,16,.9)');
+      ctx.fillStyle = pg; plate(ctx, x0 + 12, y0 + 8, pw - 12, ch - 28, 10); ctx.fill();
+      const bg = ctx.createLinearGradient(x0, 0, x0 + pw, 0); bg.addColorStop(0, f.color); bg.addColorStop(1, shade(f.color, -70));
+      ctx.fillStyle = bg; plate(ctx, x0 + 4, y0 + ch - 20, pw - 14, 18, 8); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.28)'; plate(ctx, x0 + 11, y0 + ch - 20, pw - 21, 3, 1); ctx.fill();
+      if (pop > 0.02) { ctx.fillStyle = `rgba(255,255,255,${pop * 0.5})`; plate(ctx, x0 + 12, y0 + 8, pw - 12, ch - 28, 10); ctx.fill(); }
+      // portrait medallion
+      const px = x0 + 34, py = y0 + 32;
+      ctx.save(); ctx.beginPath(); ctx.arc(px, py, 26, 0, TAU); const mg = ctx.createRadialGradient(px - 8, py - 10, 2, px, py, 28); mg.addColorStop(0, shade(f.hero.color, 40)); mg.addColorStop(1, shade(f.hero.color, -50)); ctx.fillStyle = mg; ctx.fill(); ctx.clip(); portrait(ctx, f.hero, px, py + 2, 36); ctx.restore();
+      ctx.lineWidth = 3.5; ctx.strokeStyle = f.color; ctx.beginPath(); ctx.arc(px, py, 26, 0, TAU); ctx.stroke();
+      ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(px, py, 28.2, 0, TAU); ctx.stroke();
+      if (f.finalReady) { const pu = 0.5 + 0.5 * Math.sin(W.t * 0.25); ctx.strokeStyle = `rgba(255,243,160,${0.6 + 0.4 * pu})`; ctx.lineWidth = 3; ctx.shadowColor = '#ffe680'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(px, py, 31 + pu * 3, 0, TAU); ctx.stroke(); ctx.shadowBlur = 0; }
+      // name
+      ctx.font = 'bold 11px "Trebuchet MS", sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#e9e4ff';
+      let nm = f.hero.name.toUpperCase(); const maxW = cw - 84; while (nm.length > 3 && ctx.measureText(nm).width > maxW) nm = nm.slice(0, -1); ctx.fillText(nm, x0 + 68, y0 + 20);
+      // damage: big italic number that pops, shakes and reddens
+      const big = cw > 170, fs = big ? 40 : 30;
+      const label = f.isBoss ? String(Math.max(0, Math.ceil(f.hp))) : (out ? '—' : String(Math.floor(f.damage)));
+      const unit = f.isBoss ? ' HP' : (out ? '' : '%');
+      const sh = f.damageShake > 0 ? 7 : pop * 5, jx = sh ? (Math.random() - 0.5) * sh : 0, jy = sh ? (Math.random() - 0.5) * sh : 0;
+      ctx.save(); ctx.translate(x0 + cw - 24 + jx, y0 + 50 + jy); ctx.rotate(-0.07 - pop * 0.06); const sc2 = 1 + pop * 0.32; ctx.scale(sc2, sc2);
+      ctx.textAlign = 'right'; ctx.lineJoin = 'round';
+      ctx.font = `italic 900 ${Math.round(fs * 0.5)}px "Trebuchet MS", sans-serif`; const uw = unit ? ctx.measureText(unit).width + 1 : 0;
+      const top = f.isBoss ? '#ffd0d0' : dmgColor(f.damage * 0.55), bot = f.isBoss ? '#ff5a5a' : dmgColor(f.damage);
+      const tg = ctx.createLinearGradient(0, -fs * 0.8, 0, 0); tg.addColorStop(0, pop > 0.5 ? '#ffffff' : top); tg.addColorStop(1, bot);
+      ctx.strokeStyle = '#0d0508'; ctx.fillStyle = tg;
+      if (unit) { ctx.lineWidth = 4.5; ctx.strokeText(unit, 0, 0); ctx.fillText(unit, 0, 0); }
+      ctx.font = `italic 900 ${fs}px "Trebuchet MS", sans-serif`; ctx.lineWidth = 7; ctx.strokeText(label, -uw, 0);
+      ctx.lineWidth = 2; ctx.strokeStyle = f.isBoss ? '#5a0d0d' : dmgColor(f.damage, 0.35); ctx.strokeText(label, -uw, 0); ctx.fillText(label, -uw, 0);
+      ctx.restore();
+      // bottom band: stock heads, tag / score, held item
+      const by = y0 + ch - 11;
       if (W.cfg.mode !== 'training' && !f.isBoss) {
-        if (f.stocks <= 5) for (let s = 0; s < f.stocks; s++) { ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(x0 + 70 + s * 13, y0 + 62, 5, 0, TAU); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke(); }
-        else { ctx.fillText('● x' + f.stocks, x0 + 66, y0 + 66); }
+        if (f.stocks <= 5) for (let k = 0; k < f.stocks; k++) { const sx = x0 + 22 + k * 17; ctx.save(); ctx.beginPath(); ctx.arc(sx, by, 7.5, 0, TAU); ctx.fillStyle = shade(f.hero.color, -40); ctx.fill(); ctx.clip(); portrait(ctx, f.hero, sx, by + 1, 12); ctx.restore(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, by, 7.5, 0, TAU); ctx.stroke(); }
+        else { ctx.font = 'bold 12px "Trebuchet MS", sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('● x' + f.stocks, x0 + 16, by + 4); }
       }
-      if (W.cfg.time) { ctx.fillStyle = '#ddd'; ctx.fillText((f.score >= 0 ? '+' : '') + f.score, x0 + cw - 50, y0 + 66); }
-      if (f.held) { itemIcon(ctx, f.held.kind, x0 + cw - 34, y0 + 62, 0.45, W.t); }
-      if (f.isBoss) { ctx.fillStyle = '#400'; ctx.fillRect(x0 + 66, y0 + 56, cw - 90, 8); ctx.fillStyle = '#e74c3c'; ctx.fillRect(x0 + 66, y0 + 56, (cw - 90) * Math.max(0, f.hp) / f.hero.hp, 8); }
+      ctx.font = 'italic 900 12px "Trebuchet MS", sans-serif'; ctx.textAlign = 'right'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.fillStyle = '#fff';
+      if (f.held) itemIcon(ctx, f.held.kind, x0 + pw - 24, by - 1, 0.45, W.t);
+      else { const tagS = W.cfg.time ? (f.score >= 0 ? '+' : '') + f.score : (f.isBoss ? 'BOSS' : f.cpu ? 'CPU' : 'P' + (f.slot + 1)); ctx.strokeText(tagS, x0 + pw - 20, by + 4); ctx.fillText(tagS, x0 + pw - 20, by + 4); }
+      if (f.isBoss) { const bw2 = pw - 60; ctx.fillStyle = '#300'; ctx.fillRect(x0 + 16, by - 4, bw2, 8); ctx.fillStyle = '#ff5a4a'; ctx.fillRect(x0 + 16, by - 4, bw2 * Math.max(0, f.hp) / f.hero.hp, 8); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x0 + 16, by - 4, bw2, 8); }
       ctx.restore();
     });
     if (compact) ctx.restore();
     // timer
     if (W.cfg.time) {
       const s = Math.max(0, Math.ceil(W.timeLeft / 60));
-      ctx.save(); ctx.font = 'bold 30px "Trebuchet MS", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 5; ctx.strokeStyle = '#000'; ctx.fillStyle = s <= 10 ? '#ff6b6b' : '#fff';
-      const str = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); const ty = compact ? 100 : 40; ctx.strokeText(str, vw / 2, ty); ctx.fillText(str, vw / 2, ty); ctx.restore();
+      ctx.save(); ctx.font = 'italic 900 32px "Trebuchet MS", sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.lineWidth = 6; ctx.strokeStyle = '#0d0508'; ctx.fillStyle = s <= 10 ? '#ff6b6b' : '#fff';
+      const str = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); const ty = compact ? 100 : 40; const pu = s <= 10 ? 1 + 0.12 * Math.abs(Math.sin(W.t * 0.1)) : 1; ctx.translate(vw / 2, ty); ctx.scale(pu, pu); ctx.strokeText(str, 0, 0); ctx.fillText(str, 0, 0); ctx.restore();
     }
     // countdown
     if (W.countdown > 0) {
       const n2 = Math.ceil(W.countdown / 60);
-      bigText(ctx, vw, vh, n2 === 0 ? '' : String(n2), '#fff', 120, 1 - (W.countdown % 60) / 60);
+      if (n2 > 0) splash(ctx, vw, vh, String(n2), 1 - (W.countdown % 60) / 60, '#ffffff', '#9fd8ff', false);
     } else if (W.t < 240 && W.t > 0 && W.cfg.mode !== 'training') {
-      const age = W.t - 180; if (age >= 0 && age < 50) bigText(ctx, vw, vh, 'GO!', '#ffe680', 140, age / 50);
+      const age = W.t - 180; if (age >= 0 && age < 50) splash(ctx, vw, vh, 'GO!', age / 50, '#fff6b0', '#ff9a2e', true);
     }
     // final banner
     if (W.finalBanner) {
-      const b = W.finalBanner, a = Math.min(1, b.t / 10) * (b.t > 55 ? 1 - (b.t - 55) / 15 : 1);
+      const b = W.finalBanner, a = Math.min(1, b.t / 10) * (b.t > 55 ? 1 - (b.t - 55) / 15 : 1), sl = 1 - Math.min(1, b.t / 12), e3 = sl * sl * sl;
       ctx.save(); ctx.globalAlpha = a;
-      ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(0, vh * 0.32, vw, vh * 0.3);
-      ctx.fillStyle = b.hero.color; ctx.fillRect(0, vh * 0.32, vw, 5); ctx.fillRect(0, vh * 0.62 - 5, vw, 5);
-      portrait(ctx, b.hero, vw * 0.22 - (1 - Math.min(1, b.t / 12)) * 300, vh * 0.47, vh * 0.26, true);
-      ctx.textAlign = 'center'; ctx.fillStyle = '#ffe680'; ctx.font = `bold ${Math.round(vh * 0.065)}px "Frank Ruhl Libre", serif`;
-      ctx.fillText(b.he, vw * 0.58, vh * 0.45);
-      ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.round(vh * 0.05)}px "Trebuchet MS", sans-serif`; ctx.fillText(b.name.toUpperCase(), vw * 0.58, vh * 0.54);
+      const by0 = vh * 0.3, bh = vh * 0.32, sk = bh * 0.25;
+      ctx.fillStyle = 'rgba(0,0,0,.72)'; ctx.beginPath(); ctx.moveTo(-10, by0); ctx.lineTo(vw + 10, by0 - sk * 0.25); ctx.lineTo(vw + 10, by0 + bh - sk * 0.25); ctx.lineTo(-10, by0 + bh); ctx.closePath(); ctx.fill();
+      ctx.save(); ctx.clip();
+      const cg = ctx.createLinearGradient(0, 0, vw, 0); cg.addColorStop(0, hexA(b.hero.color.length === 7 ? b.hero.color : '#ffe680', 0.75)); cg.addColorStop(0.55, 'rgba(0,0,0,0)'); ctx.fillStyle = cg; ctx.fillRect(0, by0 - sk, vw, bh + sk * 2);
+      // speed lines racing across the band
+      ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 2;
+      for (let k = 0; k < 16; k++) { const yy = by0 + ((k * 53) % 100) / 100 * bh, len = 120 + (k * 37) % 220, xx = ((k * 211 + W.t * (26 + k % 5 * 6)) % (vw + 500)) - 250; ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx + len, yy - len * 0.02); ctx.stroke(); }
+      ctx.restore();
+      ctx.fillStyle = b.hero.color; ctx.fillRect(0, by0 - 2, vw, 5); ctx.fillStyle = '#ffe680'; ctx.fillRect(0, by0 + bh - sk * 0.12 - 4, vw, 5);
+      portrait(ctx, b.hero, vw * 0.22 - e3 * 500, vh * 0.46, vh * 0.3, true);
+      ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#140a06';
+      ctx.fillStyle = '#ffe680'; ctx.font = `bold ${Math.round(vh * 0.07)}px "Frank Ruhl Libre", serif`; ctx.lineWidth = 6;
+      ctx.strokeText(b.he, vw * 0.58 + e3 * 600, vh * 0.44); ctx.fillText(b.he, vw * 0.58 + e3 * 600, vh * 0.44);
+      ctx.fillStyle = '#fff'; ctx.font = `italic 900 ${Math.round(vh * 0.055)}px "Trebuchet MS", sans-serif`; ctx.strokeText(b.name.toUpperCase(), vw * 0.58 + e3 * 900, vh * 0.54); ctx.fillText(b.name.toUpperCase(), vw * 0.58 + e3 * 900, vh * 0.54);
       ctx.restore();
     }
-    if (W.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${W.flash / 20})`; ctx.fillRect(0, 0, vw, vh); }
+    if (W.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${Math.min(0.8, W.flash / 20)})`; ctx.fillRect(0, 0, vw, vh); }
   }
-  function bigText(ctx, vw, vh, str, col, size, p) {
-    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const s = size * (1 + (1 - p) * 0.4) * Math.min(1, vw / 900);
-    ctx.font = `900 ${s}px "Trebuchet MS", sans-serif`; ctx.globalAlpha = Math.max(0, Math.min(1, 1.5 - p));
-    ctx.lineWidth = 10; ctx.strokeStyle = '#000'; ctx.strokeText(str, vw / 2, vh * 0.42); ctx.fillStyle = col; ctx.fillText(str, vw / 2, vh * 0.42);
+  // big slanted splash text (countdown, GO!, GAME!): slams in, holds, fades; p = 0..1
+  function splash(ctx, vw, vh, str, p, c1, c2, bars) {
+    p = Math.max(0, Math.min(1, p));
+    const slam = p < 0.18 ? 1 - p / 0.18 : 0, fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+    const size = Math.min(170, vw / 5.2) * (1 + slam * slam * 1.0 + (p > 0.7 ? (p - 0.7) * 0.5 : 0)), cx = vw / 2, cy = vh * 0.42;
+    ctx.save(); ctx.globalAlpha = Math.max(0, fade) * (1 - slam * 0.5);
+    if (bars) {
+      const bw = vw * Math.min(1, p / 0.2), bh = size * 0.62;
+      const g = ctx.createLinearGradient(cx - bw / 2, 0, cx + bw / 2, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.2, 'rgba(0,0,0,.6)'); g.addColorStop(0.8, 'rgba(0,0,0,.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(cx - bw / 2, cy - bh / 2 + 10); ctx.lineTo(cx + bw / 2, cy - bh / 2 - 10); ctx.lineTo(cx + bw / 2, cy + bh / 2 - 10); ctx.lineTo(cx - bw / 2, cy + bh / 2 + 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = c2; ctx.globalAlpha *= 0.9; ctx.fillRect(cx - bw / 2, cy - bh / 2 - 2, bw, 3); ctx.fillRect(cx - bw / 2, cy + bh / 2 - 2, bw, 3); ctx.globalAlpha = Math.max(0, fade) * (1 - slam * 0.5);
+    }
+    ctx.translate(cx, cy); ctx.rotate(-0.06); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.font = `italic 900 ${size}px "Trebuchet MS", sans-serif`;
+    ctx.lineWidth = size * 0.16; ctx.strokeStyle = '#120807'; ctx.strokeText(str, 0, 0);
+    ctx.lineWidth = size * 0.07; ctx.strokeStyle = c2; ctx.strokeText(str, 0, 0);
+    const g2 = ctx.createLinearGradient(0, -size * 0.45, 0, size * 0.45); g2.addColorStop(0, '#ffffff'); g2.addColorStop(0.45, c1); g2.addColorStop(1, c2);
+    ctx.fillStyle = g2; ctx.fillText(str, 0, 0);
     ctx.restore();
   }
 
-  /* ---------- Offscreen indicators ---------- */
+  /* ---------- screen-space drama: finishing-blow streaks, KO flash, Final Strike letterbox ---------- */
+  function hs(i) { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); }
+  function screenFx(ctx, W, vw, vh, toScreen) {
+    let best = null, bk = 0;
+    for (const e of W.effects) {
+      let k = 0;
+      if (e.type === 'impact' && e.power > 0.6) k = e.power * (e.t < 4 ? 1 : Math.max(0, 1 - (e.t - 4) / 9));
+      else if (e.type === 'zoomline') k = e.t < 5 ? 1 : Math.max(0, 1 - (e.t - 5) / 10);
+      else if (e.type === 'koblast' || e.type === 'ko') {
+        if (e.t < 10) { const [sx, sy] = toScreen(e.x, e.y), cx = Math.max(0, Math.min(vw, sx)), cy = Math.max(0, Math.min(vh, sy)), a = 1 - e.t / 10, R = Math.max(vw, vh) * 0.5;
+          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R); g.addColorStop(0, `rgba(255,255,255,${0.6 * a})`); g.addColorStop(0.3, hexA(e.color && e.color.length === 7 ? e.color : '#ffffff', 0.4 * a)); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh); }
+      }
+      if (k > bk) { bk = k; best = e; }
+    }
+    if (best && bk > 0.02) {
+      const [sx, sy] = toScreen(best.x, best.y), a = Math.min(1, bk), D = Math.hypot(vw, vh), z = (W.cam && W.cam.z) || 1, jit = Math.floor(W.t / 2);
+      const g = ctx.createRadialGradient(sx, sy, 70 * z, sx, sy, D * 0.7);
+      g.addColorStop(0, 'rgba(40,0,10,0)'); g.addColorStop(0.3, `rgba(50,0,12,${0.45 * a})`); g.addColorStop(1, `rgba(0,0,0,${0.8 * a})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+      for (let i = 0; i < 34; i++) {
+        const ang = (i + hs(i + jit * 7) * 0.8) / 34 * TAU, r0 = (150 + hs(i * 3 + jit) * 240) * z + 40, w = 0.004 + 0.017 * hs(i * 5 + 1), c = Math.cos(ang), s = Math.sin(ang);
+        ctx.fillStyle = i % 3 === 0 ? `rgba(255,36,48,${0.8 * a})` : i % 3 === 1 ? `rgba(0,0,0,${0.85 * a})` : `rgba(255,236,230,${0.55 * a})`;
+        ctx.beginPath(); ctx.moveTo(sx + c * r0, sy + s * r0); ctx.lineTo(sx + Math.cos(ang - w) * D, sy + Math.sin(ang - w) * D); ctx.lineTo(sx + Math.cos(ang + w) * D, sy + Math.sin(ang + w) * D); ctx.closePath(); ctx.fill();
+      }
+    }
+    // Final Strike: cinematic bars + dark edges while it plays
+    let fk = 0; for (const F of W.finals) fk = Math.max(fk, Math.min(1, F.t / 10) * Math.max(0, Math.min(1, (F.dur - F.t) / 20)));
+    if (fk > 0.01) {
+      const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.hypot(vw, vh) * 0.6);
+      g.addColorStop(0, 'rgba(6,4,20,0)'); g.addColorStop(1, `rgba(6,4,20,${0.6 * fk})`); ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+      const bh = vh * 0.075 * fk; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, vw, bh); ctx.fillRect(0, vh - bh, vw, bh);
+    }
+  }
+
+  /* ---------- Offscreen magnifier bubbles ---------- */
   function offscreen(ctx, W, vw, vh, toScreen) {
     for (const f of W.fighters) {
       if (f.dead) continue;
       const [sx, sy] = toScreen(f.x, f.y - f.h / 2);
       if (sx > -10 && sx < vw + 10 && sy > -10 && sy < vh + 10) continue;
-      const cx = Math.max(40, Math.min(vw - 40, sx)), cy = Math.max(40, Math.min(vh - 120, sy));
-      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.beginPath(); ctx.arc(cx, cy, 28, 0, TAU); ctx.fill(); ctx.strokeStyle = f.color; ctx.lineWidth = 3; ctx.stroke();
-      ctx.beginPath(); ctx.arc(cx, cy, 26, 0, TAU); ctx.clip(); portrait(ctx, f.hero, cx, cy + 2, 30); ctx.restore();
-      const a = Math.atan2(sy - cy, sx - cx); ctx.fillStyle = f.color; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * 40, cy + Math.sin(a) * 40); ctx.lineTo(cx + Math.cos(a + 0.4) * 30, cy + Math.sin(a + 0.4) * 30); ctx.lineTo(cx + Math.cos(a - 0.4) * 30, cy + Math.sin(a - 0.4) * 30); ctx.fill();
+      const R = 32, cx = Math.max(R + 14, Math.min(vw - R - 14, sx)), cy = Math.max(R + 14, Math.min(vh - 130, sy));
+      const a = Math.atan2(sy - cy, sx - cx), dist = Math.hypot(sx - cx, sy - cy), sc = Math.max(0.72, 1 - dist / 2200);
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
+      ctx.fillStyle = f.color; ctx.beginPath(); ctx.moveTo(Math.cos(a) * (R + 16), Math.sin(a) * (R + 16)); ctx.lineTo(Math.cos(a + 0.5) * (R - 2), Math.sin(a + 0.5) * (R - 2)); ctx.lineTo(Math.cos(a - 0.5) * (R - 2), Math.sin(a - 0.5) * (R - 2)); ctx.closePath(); ctx.fill();
+      const g = ctx.createRadialGradient(-8, -10, 2, 0, 0, R); g.addColorStop(0, 'rgba(120,150,200,.9)'); g.addColorStop(1, 'rgba(14,16,34,.92)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, R - 2, 0, TAU); ctx.clip(); portrait(ctx, f.hero, 0, 3, 38); ctx.restore();
+      ctx.lineWidth = 4; ctx.strokeStyle = f.color; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(0, 0, R + 2.6, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(0, 0, R - 7, -2.5, -1.7); ctx.stroke();
+      if (!f.isBoss) { ctx.font = 'italic 900 15px "Trebuchet MS", sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = '#0d0508'; ctx.fillStyle = dmgColor(f.damage); const t2 = Math.floor(f.damage) + '%'; ctx.strokeText(t2, 0, R + 8); ctx.fillText(t2, 0, R + 8); }
+      ctx.restore();
     }
   }
 
-  return { pose, handWeapon, fighterOverlay, setPortraitHook(fn) { portraitHook = fn; }, fighter, portrait, item, itemIcon, proj, minion, field, effect, finalFx, stageBG, stage, hud, offscreen, shade, rr, star, magen, flame, drawWeapon };
+  return { pose, handWeapon, fighterOverlay, setPortraitHook(fn) { portraitHook = fn; }, fighter, portrait, item, itemIcon, proj, minion, field, effect, finalFx, stageBG, stage, hud, splash, screenFx, offscreen, shade, rr, star, magen, flame, drawWeapon };
 })();

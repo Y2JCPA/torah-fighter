@@ -1126,6 +1126,7 @@ const R3D = (() => {
         case 'torch': case 'milk': case 'item': g.rotation.z = -p.t * 0.3 * dir; if (g.userData.flame) { const fp = g.localToWorld(g.userData.flame.clone()); P.flame.add(fp.x, fp.y, fp.z, '#ffffff', 22, 1); } break;
         case 'star': g.rotation.z = p.t * 0.15; P.dot.add(cx, -cy, -10, '#ffd700', p.w * 2.2, 0.7); break;
       }
+      if (VFX) VFX.proj(p, cx, cy, W);
     }
     // fields
     for (const z of W.fields) {
@@ -1141,9 +1142,10 @@ const R3D = (() => {
       }
     }
     // finals
-    for (const F of W.finals) { const g = obtain(F, () => buildFinal(F)); updateFinal(F, g, W); }
+    for (const F of W.finals) { const g = obtain(F, () => buildFinal(F)); updateFinal(F, g, W); if (VFX) VFX.final(F, W); }
     // effects
     for (const e of W.effects) {
+      if (VFX && VFX.effect(e, W)) continue; // js/vfx3d.js draws the rich version; below is the plain fallback
       const p = e.t / e.life, x = e.x, y = -e.y;
       switch (e.type) {
         case 'spark': P.dot.add(x, y, 30, e.color, 9, 1 - p); break;
@@ -1156,6 +1158,7 @@ const R3D = (() => {
         case 'boom': P.dot.add(x, y, 40, '#ffb04a', e.r * (1 + p) * 2.4, 1 - p); P.flame.add(x, y, 42, '#ffffff', e.r * (0.8 + p) * 2, 1 - p); break;
       }
     }
+    if (VFX) VFX.end(W);
     sweep();
   }
 
@@ -1215,9 +1218,10 @@ void main(){
       fragmentShader: 'uniform sampler2D t; uniform float thr; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb; float l = max(c.r, max(c.g, c.b)); float k = smoothstep(thr, thr + 0.7, l); gl_FragColor = vec4(c * k, 1.0); }' });
     post.mBlur = new T.ShaderMaterial({ uniforms: { t: { value: null }, dir: { value: new T.Vector2() } }, vertexShader: FS_VERT, toneMapped: false,
       fragmentShader: 'uniform sampler2D t; uniform vec2 dir; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb * 0.227; c += (texture2D(t, vUv + dir * 1.385).rgb + texture2D(t, vUv - dir * 1.385).rgb) * 0.316; c += (texture2D(t, vUv + dir * 3.231).rgb + texture2D(t, vUv - dir * 3.231).rgb) * 0.070; gl_FragColor = vec4(c, 1.0); }' });
-    post.mComp = new T.ShaderMaterial({ uniforms: { tS: { value: null }, b0: { value: null }, b1: { value: null }, b2: { value: null }, b3: { value: null }, bloom: { value: 0.85 }, vig: { value: 0.32 }, sat: { value: 1.1 }, flash: { value: 0 } }, vertexShader: FS_VERT,
-      fragmentShader: `uniform sampler2D tS, b0, b1, b2, b3; uniform float bloom, vig, sat, flash; varying vec2 vUv;
+    post.mComp = new T.ShaderMaterial({ uniforms: { tS: { value: null }, b0: { value: null }, b1: { value: null }, b2: { value: null }, b3: { value: null }, bloom: { value: 0.85 }, vig: { value: 0.32 }, sat: { value: 1.1 }, flash: { value: 0 }, ca: { value: 0 } }, vertexShader: FS_VERT,
+      fragmentShader: `uniform sampler2D tS, b0, b1, b2, b3; uniform float bloom, vig, sat, flash, ca; varying vec2 vUv;
         void main(){ vec3 c = texture2D(tS, vUv).rgb;
+          if (ca > 0.002) { vec2 o = (vUv - 0.5) * ca * 0.008; c.r = texture2D(tS, vUv - o).r; c.b = texture2D(tS, vUv + o).b; } // impact kick: radial colour split
           vec3 b = texture2D(b0, vUv).rgb * 0.5 + texture2D(b1, vUv).rgb * 0.7 + texture2D(b2, vUv).rgb * 0.9 + texture2D(b3, vUv).rgb * 1.1;
           c += b * bloom * 0.45 + vec3(flash);
           float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = max(mix(vec3(l), c, sat), 0.0);
@@ -1239,7 +1243,7 @@ void main(){
     for (let i = 0; i < 4; i++) { post.a.push(new T.WebGLRenderTarget(bw, bh, opt)); post.b.push(new T.WebGLRenderTarget(bw, bh, opt)); bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1); }
   }
   function pass(mat, target) { post.quad.material = mat; renderer.setRenderTarget(target); renderer.render(post.qscene, post.qcam); }
-  function renderPost(flash = 0) {
+  function renderPost(flash = 0, kick = 0, finalK = 0) {
     const pr = renderer.getPixelRatio();
     sizePost(Math.round(lastW * pr), Math.round(lastH * pr));
     renderer.setRenderTarget(post.scene); renderer.render(scene, camera);
@@ -1252,6 +1256,7 @@ void main(){
       src = B;
     }
     const u = post.mComp.uniforms; u.tS.value = post.scene.texture; u.b0.value = post.b[0].texture; u.b1.value = post.b[1].texture; u.b2.value = post.b[2].texture; u.b3.value = post.b[3].texture; u.flash.value = flash;
+    u.ca.value = kick; u.bloom.value = 0.85 + 0.2 * kick + 0.5 * finalK; u.vig.value = 0.32 + 0.3 * finalK;
     pass(post.mComp, null);
   }
 
@@ -1269,6 +1274,7 @@ void main(){
     sky.position.copy(camera.position);
     const ps = renderer.getPixelRatio() * vh / (2 * TAN);
     for (const k in P) P[k].mat.uniforms.scale.value = ps;
+    if (VFX) VFX.view(cam.x, cam.y + hudH / (2 * cam.z), visH * camera.aspect / 2, visH / 2);
     // shadow frustum hugs the visible play area
     const half = Math.min(1400, Math.max(520, visH * camera.aspect * 0.62));
     const sc = sun.shadow.camera; sc.left = -half; sc.right = half; sc.top = half * 0.8; sc.bottom = -half * 0.8; sc.updateProjectionMatrix();
@@ -1276,7 +1282,7 @@ void main(){
     sun.position.set(cam.x + sd[0] * -900 - 300, -cam.y + 1300, 1100); sun.target.position.set(cam.x, -cam.y, 0); sun.target.updateMatrixWorld();
   }
 
-  let lastW = 0, lastH = 0, quality = 2, curSky = null;
+  let lastW = 0, lastH = 0, quality = 2, curSky = null, VFX = null;
   // adaptive quality: 2 = bloom + MSAA + 2k shadows, 1 = direct render + 1k shadows, 0 = no shadows, 1x pixels
   const perf = { last: 0, acc: 0, n: 0 };
   function setQuality(q) {
@@ -1298,18 +1304,19 @@ void main(){
     }
   }
   let curWorld = null;
-  function frame(W, vw, vh, hudH, shakeX, shakeY) {
+  function frame(W, vw, vh, hudH, shakeX, shakeY, viewCam) { // viewCam: W.cam with any zoom punch applied (the 2D overlay uses the same one)
     if (!ok) return;
     adapt();
     if (W !== curWorld) { for (const [, o] of objMap) { o.parent && o.parent.remove(o); disposeTree(o); } objMap.clear(); curWorld = W; }
     if (vw !== lastW || vh !== lastH) { renderer.setSize(vw, vh, false); lastW = vw; lastH = vh; }
     dyn.visible = true;
     for (const k in P) P[k].reset();
+    if (VFX) VFX.begin(W, quality, W.stage.deco, SKY[W.stage.deco] || SKY.elah);
     syncWorld(W);
     for (const k in P) P[k].commit();
-    setView(W.cam, vw, vh, hudH, shakeX, shakeY);
+    setView(viewCam || W.cam, vw, vh, hudH, shakeX, shakeY);
     sky.material.uniforms.time.value = W.t / 60;
-    if (quality >= 2) renderPost(0); else { renderer.setRenderTarget(null); renderer.render(scene, camera); }
+    if (quality >= 2) renderPost(0, VFX ? VFX.kick : 0, VFX ? VFX.finalK : 0); else { renderer.setRenderTarget(null); renderer.render(scene, camera); }
   }
 
   /* ---------- snapshots for menus / HUD ---------- */
@@ -1407,6 +1414,7 @@ void main(){
     P = { dot: Particles(TEX.dot, true), norm: Particles(TEX.dot, false), smoke: Particles(TEX.dot, false), flame: Particles(TEX.flame, true), star: Particles(TEX.star, true), ring: Particles(TEX.ring, true, 300) };
     for (const k in P) scene.add(P[k].pts);
     trails = new T.Group(); scene.add(trails);
+    if (typeof VFX3D !== 'undefined') { try { VFX = VFX3D.init({ T, scene, dyn, P, TEX, canvasTex }); } catch (e) { VFX = null; } }
     ok = true;
     if (mobile) setQuality(1);
     return true;
