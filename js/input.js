@@ -4,15 +4,19 @@
 const Input = (() => {
   const keys = new Set();
   const pressedThisFrame = new Set();
+  const pressOrder = {}; let pressN = 0;   // when each key went down, so opposite directions resolve to the newest press
   window.addEventListener('keydown', e => {
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash', 'Quote'].includes(e.code)) e.preventDefault();
-    if (!keys.has(e.code)) pressedThisFrame.add(e.code);
+    if (!keys.has(e.code)) { pressedThisFrame.add(e.code); pressOrder[e.code] = ++pressN; }
     keys.add(e.code);
   });
   window.addEventListener('keyup', e => keys.delete(e.code));
   window.addEventListener('blur', () => keys.clear());
 
   const any = (list) => list.some(k => keys.has(k) || pressedThisFrame.has(k));
+  const newest = (list) => { let n = 0; for (const k of list) if ((keys.has(k) || pressedThisFrame.has(k)) && pressOrder[k] > n) n = pressOrder[k]; return n; };
+  // digital axis with "last press wins": rolling from one direction key to the other turns around at once instead of passing through neutral
+  const axis = (neg, pos) => { const a = newest(neg), b = newest(pos); return a === b ? 0 : b > a ? 1 : -1; };
 
   // Key maps
   const MAPS = {
@@ -48,7 +52,7 @@ const Input = (() => {
     if (dev.startsWith('kb')) {
       const m = MAPS[dev];
       return {
-        x: (any(m.r) ? 1 : 0) - (any(m.l) ? 1 : 0), y: (any(m.d) ? 1 : 0) - (any(m.u) ? 1 : 0),
+        x: axis(m.l, m.r), y: axis(m.u, m.d),
         jump: any(m.jump), attack: any(m.attack), special: any(m.special), smash: any(m.smash), shield: any(m.shield), pause: any(m.pause),
         cx: 0, cy: 0, digital: true
       };
