@@ -511,7 +511,7 @@ const Chars3D = (() => {
     if (R.bowBack) R.bowBack.visible = kind !== 'bowdraw';
     // hit flash / final-ready pulse / charge shimmer
     R.flash = f && f.hitlag > 0 && f.damageShake > 0 ? 0.9 : R.flash * 0.72;
-    const fv = R.flash * 0.7 + (f && f.finalReady ? 0.06 + Math.sin(tNow * 0.25) * 0.04 : 0) + (spec.charging ? 0.1 + Math.sin(tNow * 0.9) * 0.08 : 0);
+    const fv = R.flash * 0.3 + (f && f.finalReady ? 0.06 + Math.sin(tNow * 0.25) * 0.04 : 0) + (spec.charging ? 0.1 + Math.sin(tNow * 0.9) * 0.08 : 0);
     for (const m of R.mats) if (m.userData.flash) m.userData.flash.value = fv;
     return spec;
   }

@@ -106,10 +106,10 @@ const VFX3D = (() => {
     const t = e.t, p = clamp(t / e.life, 0, 1), q = 1 - p, eo = 1 - q * q * q, x = e.x, y = e.y, Sz = 0.7 + pw * 1.1;
     if (t <= 2) flash(x, y, col, pw, W);
     S.kick = Math.max(S.kick, pw * clamp(1 - t / 9, 0, 1));
-    if (t < 6) glow(x, y, 46, 34 * Sz * (1 - t / 7), '#ffffff', 0.8, 1.8);
-    glow(x, y, 44, (40 + 50 * eo) * Sz, col, 0.35 * q * q, 1.3);
+    if (t < 4) glow(x, y, 46, 22 * Sz * (1 - t / 5), '#ffffff', 0.5, 1.2);
+    glow(x, y, 44, (34 + 40 * eo) * Sz, col, 0.2 * q * q, 1.1);
     const fs = (55 + 120 * pw) * (0.7 + eo * 0.8);
-    disc(x, y, 47, fs * 1.35, fs * 0.42, ang, FLARE, '#ffffff', q * q * 0.7, 1.8);
+    disc(x, y, 47, fs * 1.2, fs * 0.3, ang, FLARE, '#ffffff', q * q * 0.45, 1.3);
     // directional spikes: most fly with the victim, a few splash back
     const n = 6 + ((pw * 9) | 0);
     for (let i = 0; i < n; i++) {
