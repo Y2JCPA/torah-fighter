@@ -10,7 +10,9 @@ const Audio = (() => {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
-    master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = 0.7;
+    // a gentle limiter so layered hits and KO booms stay loud without clipping
+    try { const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.002; comp.release.value = 0.18; master.connect(comp); comp.connect(ctx.destination); } catch (e) { master.connect(ctx.destination); }
     sfxGain = ctx.createGain(); sfxGain.gain.value = sfxOn ? 0.8 : 0; sfxGain.connect(master);
     musicGain = ctx.createGain(); musicGain.gain.value = musicOn ? 0.22 : 0; musicGain.connect(master);
   }
@@ -26,7 +28,7 @@ const Audio = (() => {
   }
 
   let noiseBuf = null;
-  function noise(dur, vol = 0.3, freq = 1200, delay = 0, q = 1) {
+  function noise(dur, vol = 0.3, freq = 1200, delay = 0, q = 1, type = 'bandpass', freq2 = 0) {
     if (!ctx) return;
     if (!noiseBuf) {
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
@@ -35,7 +37,8 @@ const Audio = (() => {
     }
     const t = ctx.currentTime + delay;
     const s = ctx.createBufferSource(); s.buffer = noiseBuf;
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (freq2) f.frequency.exponentialRampToValueAtTime(freq2, t + dur);
     const g = ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     s.connect(f); f.connect(g); g.connect(sfxGain); s.start(t); s.stop(t + dur + 0.02);
   }
@@ -53,13 +56,41 @@ const Audio = (() => {
     o.connect(f); f.connect(g); g.connect(sfxGain); o.start(t); o.stop(t + dur + 0.05); lfo.start(t); lfo.stop(t + dur + 0.05);
   }
 
+  // airy swish: band-passed noise whose pitch sweeps up then down, with a soft attack
+  function whoosh(dur = 0.16, vol = 0.2, f0 = 700, f1 = 3200, delay = 0) {
+    if (!ctx) return;
+    if (!noiseBuf) noise(0.01, 0.0001);
+    const t = ctx.currentTime + delay;
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4;
+    f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.45); f.frequency.exponentialRampToValueAtTime(Math.max(200, f0 * 0.8), t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.001, t); g.gain.linearRampToValueAtTime(vol, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    s.connect(f); f.connect(g); g.connect(sfxGain); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  }
+  // body thump: a sine that drops fast in pitch
+  function thump(f0, f1, dur, vol, delay = 0) { tone(f0, dur, 'sine', vol, f1 - f0, delay); }
+
   const SFX = {
-    jump: () => tone(300, 0.12, 'square', 0.12, 300),
-    djump: () => tone(420, 0.12, 'square', 0.12, 400),
-    land: () => noise(0.06, 0.12, 400),
-    swing: () => noise(0.09, 0.15, 2600, 0, 0.8),
-    hit: (s = 1) => { noise(0.12, 0.25 * s, 900); tone(160, 0.1, 'square', 0.15 * s, -80); },
-    heavy: () => { noise(0.25, 0.4, 600); tone(110, 0.25, 'sawtooth', 0.3, -60); },
+    jump: () => { tone(300, 0.12, 'square', 0.09, 300); whoosh(0.14, 0.1, 500, 1800); },
+    djump: () => { tone(420, 0.12, 'square', 0.09, 400); whoosh(0.16, 0.12, 900, 3000); tone(1250, 0.08, 'sine', 0.05, 500, 0.03); },
+    land: () => { thump(150, 55, 0.09, 0.22); noise(0.07, 0.12, 400); },
+    swing: () => whoosh(0.17, 0.2, 700, 3400),
+    whoosh: (s = 1) => whoosh(0.14 + 0.1 * s, 0.14 + 0.12 * s, 500, 2400 + 1400 * s),
+    dash: () => { whoosh(0.2, 0.16, 400, 2200); noise(0.08, 0.08, 300); },
+    // hits are layered: a sharp crack, a mid smack and a low body thump that grows with strength s (0.5 light .. 1.4 strong)
+    hit: (s = 1) => {
+      noise(0.045, 0.34 * s, 3200, 0, 0.7, 'highpass');
+      noise(0.11, 0.3 * s, 1100, 0, 0.9);
+      thump(190 + 40 * s, 60, 0.11 + 0.05 * s, 0.3 * s);
+      tone(240, 0.05, 'square', 0.08 * s, -120);
+    },
+    heavy: () => {
+      noise(0.05, 0.45, 2600, 0, 0.6, 'highpass');
+      noise(0.3, 0.42, 900, 0, 0.6, 'lowpass', 180);
+      thump(170, 34, 0.42, 0.55); thump(95, 30, 0.5, 0.35, 0.02);
+      tone(110, 0.22, 'sawtooth', 0.2, -70);
+      noise(0.5, 0.1, 500, 0.08, 0.4);
+    },
     shield: () => tone(900, 0.08, 'triangle', 0.15, -300),
     shieldbreak: () => { tone(600, 0.5, 'square', 0.25, -500); noise(0.4, 0.3, 3000); },
     shoot: () => tone(700, 0.1, 'triangle', 0.15, -400),
@@ -67,7 +98,13 @@ const Audio = (() => {
     arrow: () => { noise(0.08, 0.2, 4000); tone(1200, 0.06, 'sine', 0.08, -600); },
     fire: () => noise(0.4, 0.3, 500, 0, 0.5),
     water: () => { noise(0.5, 0.3, 700, 0, 0.4); noise(0.3, 0.2, 1500, 0.1); },
-    ko: () => { tone(880, 0.6, 'sawtooth', 0.2, -800); noise(0.7, 0.35, 300); },
+    // KO: rising zap, a deep boom with a long rumbling tail, then a bright sparkle
+    ko: () => {
+      tone(320, 0.2, 'sawtooth', 0.16, 1500); noise(0.2, 0.2, 1500, 0, 0.8, 'bandpass', 5000);
+      thump(150, 26, 0.9, 0.6, 0.1); thump(75, 24, 1.1, 0.4, 0.12);
+      noise(0.09, 0.5, 2400, 0.1, 0.5, 'highpass'); noise(1.1, 0.4, 700, 0.1, 0.5, 'lowpass', 90);
+      [1568, 2093, 2637, 3136].forEach((f, i) => tone(f, 0.22, 'sine', 0.05, 0, 0.22 + i * 0.05));
+    },
     pickup: () => { tone(660, 0.07, 'square', 0.12); tone(990, 0.09, 'square', 0.12, 0, 0.06); },
     heal: () => { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.15, 'sine', 0.12, 0, i * 0.07)); },
     menu: () => tone(520, 0.05, 'square', 0.1),

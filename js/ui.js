@@ -438,23 +438,31 @@
     }
   }
 
+  // camera used for drawing: W.cam plus a brief punch-in on big hits. The 3D view and the 2D overlay both use it, so they stay aligned.
+  const vcam = { x: 0, y: 0, z: 1 };
+  function punchCam(W) {
+    let zp = W.zoomPunch;
+    if (zp === undefined) { zp = 0; for (const e of W.effects) { if (e.type === 'zoomline') zp = Math.max(zp, 1 - e.t / 20); else if (e.type === 'hitring' && e.r >= 30) zp = Math.max(zp, 0.45 * (1 - e.t / 10)); } } // until the engine drives it
+    zp = Math.max(0, Math.min(1, +zp || 0));
+    vcam.x = W.cam.x; vcam.y = W.cam.y; vcam.z = W.cam.z * (1 + 0.075 * zp); return vcam;
+  }
   function render() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const W = state.scene === 'match' ? state.W : state.demo;
     if (!W) { ctx.clearRect(0, 0, vw, vh); if (!use3D) { ctx.fillStyle = '#140c26'; ctx.fillRect(0, 0, vw, vh); } return; }
     const hudH = state.scene === 'match' ? (state.hudH ?? 70) : 0;
     ENG.updateCamera(W, vw, vh - hudH);
-    const cam = W.cam;
+    const cam = punchCam(W);
     const shake = settings.shake ? W.shake : 0;
     const shx = (Math.random() - 0.5) * shake, shy = (Math.random() - 0.5) * shake;
     if (use3D) {
-      R3D.frame(W, vw, vh, hudH, shx, shy);
+      R3D.frame(W, vw, vh, hudH, shx, shy, cam);
       ctx.clearRect(0, 0, vw, vh);
       ctx.save();
       ctx.translate(vw / 2 + shx, (vh - hudH) / 2 + shy);
       ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
       for (const f of W.fighters) Art.fighterOverlay(ctx, f, W);
-      for (const e of W.effects) if (e.type === 'text' || e.type === 'ko' || e.type === 'target' || e.type === 'raven') Art.effect(ctx, e, W);
+      for (const e of W.effects) if (e.type === 'text' || e.type === 'target' || e.type === 'raven') Art.effect(ctx, e, W);
     } else {
     Art.stageBG(ctx, W, vw, vh);
     ctx.save();
@@ -474,12 +482,11 @@
     ctx.restore();
     if (state.scene === 'match') {
       const yOff = (vh - hudH) / 2;
-      Art.offscreen(ctx, W, vw, vh, (x, y) => [vw / 2 + (x - cam.x) * cam.z, yOff + (y - cam.y) * cam.z]);
+      const toScreen = (x, y) => [vw / 2 + (x - cam.x) * cam.z, yOff + (y - cam.y) * cam.z];
+      Art.screenFx(ctx, W, vw, vh, toScreen);
+      Art.offscreen(ctx, W, vw, vh, toScreen);
       Art.hud(ctx, W, vw, vh);
-      if (W.over && W.endT < 150) {
-        ctx.save(); ctx.textAlign = 'center'; ctx.font = `900 ${Math.min(110, vw / 8)}px "Trebuchet MS", sans-serif`; ctx.lineWidth = 10; ctx.strokeStyle = '#000'; ctx.fillStyle = '#ffe680';
-        const txt = W.cfg.time && W.timeLeft <= 0 ? 'TIME!' : 'GAME!'; ctx.strokeText(txt, vw / 2, vh * 0.42); ctx.fillText(txt, vw / 2, vh * 0.42); ctx.restore();
-      }
+      if (W.over && W.endT < 150) Art.splash(ctx, vw, vh, W.cfg.time && W.timeLeft <= 0 ? 'TIME!' : 'GAME!', Math.min(0.7, W.endT / 150), '#fff6b0', '#ff5a2e', true);
     }
   }
 
@@ -762,6 +769,9 @@
   }
   // test hooks (used by tests/smoke.js)
   window.TF = { get use3D() { return use3D; }, state, startMatch, titleScreen, versusScreen, seferScreen, classicPick, trainingPick, ENG, HEROES, STAGES };
+  // debug: inject an effect into the running world, e.g. TF.fx('impact', { x: 0, y: -60, power: 0.9, ang: -0.6, color: '#e74c3c' })
+  const FX_LIFE = { impact: 18, launchtrail: 26, shock: 20, jumpring: 14, jumpdust: 14, landdust: 14, dashburst: 14, shieldhit: 12, koblast: 50 };
+  window.TF.fx = (type, o = {}) => { const W = state.scene === 'match' ? state.W : state.demo; if (!W) return null; const e = { type, x: 0, y: -60, t: 0, life: FX_LIFE[type] || 20, ...o }; W.effects.push(e); return e; };
   titleScreen();
   requestAnimationFrame(frame);
 })();
