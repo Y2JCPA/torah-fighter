@@ -174,5 +174,5 @@ const Input = (() => {
     });
   }
 
-  return { read, menu, endFrame, padCount, padIndexes, setupTouch, touch, keys, MAPS };
+  return { blank, read, menu, endFrame, padCount, padIndexes, setupTouch, touch, keys, MAPS };
 })();
