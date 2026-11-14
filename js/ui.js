@@ -140,7 +140,7 @@
   function titleScreen() {
     state.online=false; Online.leave();
     state.scene = 'title'; state.W = null; touchEl.classList.add('hidden'); if (!state.demo) startDemo();
-    const n = el(`<div class="screen" style="background:linear-gradient(180deg,rgba(10,5,25,.55),rgba(10,5,25,.25) 45%,rgba(10,5,25,.75))">
+    const n = el(`<div class="screen" id="title-screen" style="background:linear-gradient(180deg,rgba(10,5,25,.55),rgba(10,5,25,.25) 45%,rgba(10,5,25,.75))">
       <div class="logo"><div class="he">גִּבּוֹרֵי הַתּוֹרָה</div><h1>TORAH FIGHTER</h1><p>The heroes of Tanach. Every move comes from a passuk.</p></div>
       <div class="menu">
         <button class="btn gold default" data-nav data-go="versus">⚔️ <span>Versus<small>1–4 players, CPUs, items</small></span><span class="he">קְרָב</span></button>
