@@ -138,11 +138,13 @@
     state.demo = ENG.createWorld({ stage: st, players: pick.map(h => ({ hero: h, cpu: 6 })), stocks: 99, items: 'high', hazards: true, mode: 'training', noCountdown: true });
   }
   function titleScreen() {
+    state.online=false; Online.leave();
     state.scene = 'title'; state.W = null; touchEl.classList.add('hidden'); if (!state.demo) startDemo();
     const n = el(`<div class="screen" style="background:linear-gradient(180deg,rgba(10,5,25,.55),rgba(10,5,25,.25) 45%,rgba(10,5,25,.75))">
       <div class="logo"><div class="he">גִּבּוֹרֵי הַתּוֹרָה</div><h1>TORAH FIGHTER</h1><p>The heroes of Tanach. Every move comes from a passuk.</p></div>
       <div class="menu">
         <button class="btn gold default" data-nav data-go="versus">⚔️ <span>Versus<small>1–4 players, CPUs, items</small></span><span class="he">קְרָב</span></button>
+        <button class="btn" data-nav data-go="online">🌐 <span>Online Versus<small>Two players • private room code</small></span></button>
         <button class="btn" data-nav data-go="classic">📜 <span>Classic Journey<small>Seven battles, then Golyat</small></span><span class="he">מַסָּע</span></button>
         <button class="btn" data-nav data-go="training">🎯 <span>Training<small>Practice on a dummy</small></span><span class="he">אִמּוּן</span></button>
         <button class="btn" data-nav data-go="sefer">📖 <span>The Sefer<small>Heroes, sources & Sefaria texts</small></span><span class="he">סֵפֶר</span></button>
@@ -151,7 +153,7 @@
       </div>
       <div class="foot">Move sources researched with the <a href="https://www.sefaria.org" target="_blank" rel="noopener">Sefaria</a> API · Keyboard, gamepad or touch</div>
     </div>`);
-    click(n, '[data-go]', (b) => ({ versus: versusScreen, classic: classicPick, training: trainingPick, sefer: () => seferScreen('heroes'), controls: controlsScreen, settings: settingsScreen })[b.dataset.go]());
+    click(n, '[data-go]', (b) => ({ versus: versusScreen, online: onlineScreen, classic: classicPick, training: trainingPick, sefer: () => seferScreen('heroes'), controls: controlsScreen, settings: settingsScreen })[b.dataset.go]());
     show(n);
     Audio.startMusic(0);
   }
@@ -344,6 +346,29 @@
     if (!isTouch) m.querySelector('[data-x]').focus();
   }
 
+  function onlineScreen() {
+    state.scene='menu'; state.W=null; state.demo=null;
+    const n=el(`<div class="screen"><h1>Online Versus</h1><p>Two players • private room code • host keeps the match running</p><div class="panel" style="max-width:600px;width:90%"><label>Your hero <select id="online-hero">${HEROES.filter(h=>!h.boss).map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select></label><p><button class="btn gold" id="online-create">Create room</button></p><label>Room code <input id="online-code" maxlength="6" placeholder="ABC234" autocomplete="off" style="text-transform:uppercase"></label><button class="btn" id="online-join">Join room</button><p id="online-status" role="status">Choose your hero, then create or join.</p><p id="room-code" style="font-size:2rem;color:var(--gold2)"></p><label>Stage <select id="online-stage">${STAGES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label><button class="btn gold hidden" id="online-start">Start online match</button><p>3 stocks • no items • direct peer connection. Keep both tabs open. Some networks may block direct connections.</p><button class="btn" id="online-leave">Back / Leave room</button></div></div>`);
+    show(n,titleScreen);
+    const status=n.querySelector('#online-status');
+    let currentRoom;
+    function error(message){status.textContent=message;}
+    Online.setCallbacks({room:(r,code,isHost,ready)=>{if(!n.isConnected)return;currentRoom=r;n.querySelector('#room-code').textContent=code||'';status.textContent=ready?'Connected! Host can start.':r?.guest?'Connecting players…':'Share this code with your friend.';n.querySelector('#online-start').classList.toggle('hidden',!isHost);n.querySelector('#online-start').disabled=!ready;n.querySelector('#online-stage').disabled=!isHost;},error,start:config=>onlineStart(config)});
+    const busy=async fn=>{n.querySelector('#online-create').disabled=true;n.querySelector('#online-join').disabled=true;status.textContent='Connecting…';try{await fn();}catch(e){await Online.leave();error(e.message||'Could not connect.');n.querySelector('#online-create').disabled=false;n.querySelector('#online-join').disabled=false;}};
+    n.querySelector('#online-create').onclick=()=>busy(()=>Online.create(n.querySelector('#online-hero').value));
+    n.querySelector('#online-join').onclick=()=>busy(()=>Online.join(n.querySelector('#online-code').value,n.querySelector('#online-hero').value));
+    n.querySelector('#online-leave').onclick=()=>titleScreen();
+    n.querySelector('#online-start').onclick=()=>{try{Online.start({stage:n.querySelector('#online-stage').value,heroes:[currentRoom.hostHero,currentRoom.guestHero]});}catch(e){error(e.message);}};
+  }
+  function onlineError(message){if(!state.online)return;state.online=false;state.W=null;touchEl.classList.add('hidden');Online.leave();state.scene='menu';const n=el(`<div class="screen"><h2>Online match ended</h2><p>${esc(message)}</p><button class="btn" data-nav>Back to menu</button></div>`);n.querySelector('button').onclick=titleScreen;show(n,titleScreen);}
+  function onlineStart(config){
+    if(!STAGES.some(s=>s.id===config.stage)||!Array.isArray(config.heroes)||config.heroes.length!==2||!config.heroes.every(id=>HERO_BY_ID[id]&&!HERO_BY_ID[id].boss))return onlineError('Invalid match setup.');
+    state.online=true;state.onlineFinished=false;Online.setCallbacks({error:onlineError});
+    startMatch({stage:STAGES.find(s=>s.id===config.stage),players:config.heroes.map(id=>({hero:HERO_BY_ID[id],device:'any',cpu:0})),stocks:3,mode:'stock',items:'off',hazards:false,finals:true,time:0},onlineResults);
+    const leave=el('<button class="pausebtn" style="pointer-events:auto" title="Leave online match">Leave</button>');leave.onclick=()=>onlineError('You left the match.');ui.firstElementChild.appendChild(leave);
+  }
+  function onlineResults(W){if(state.onlineFinished)return;if(Online.host)Online.broadcast(W,true);state.onlineFinished=true;state.scene='menu';touchEl.classList.add('hidden');const winner=W.fighters.find(f=>!f.out&&f.stocks>0)||W.fighters[0];const n=el(`<div class="screen"><h1>${esc(winner.hero.name)} wins!</h1><p>Online match complete</p><button class="btn gold" data-nav>Back to menu</button></div>`);n.querySelector('button').onclick=titleScreen;show(n,titleScreen);}
+
   function versusScreen() {
     selectScreen({ mode: 'versus', title: 'VERSUS', he: 'בְּחַר גִּבּוֹר', back: titleScreen, onDone: stageScreen });
   }
@@ -385,14 +410,14 @@
     state.W.touchPad = useTouch ? 1 : 0; state.hudH = useTouch ? 0 : 70;
     resize();
     const hud = el(`<div class="screen clear" style="padding:0;pointer-events:none"></div>`);
-    if (!useTouch) { const pb = el(`<button class="pausebtn" style="pointer-events:auto" title="Pause">❚❚</button>`); pb.addEventListener('click', () => togglePause()); hud.appendChild(pb); }
+    if (!useTouch && !state.online) { const pb = el(`<button class="pausebtn" style="pointer-events:auto" title="Pause">❚❚</button>`); pb.addEventListener('click', () => togglePause()); hud.appendChild(pb); }
     if (cfg.mode === 'training') hud.appendChild(trainingBar());
     show(hud, null);
     Audio.startMusic(cfg.stage.music || 0);
   }
 
   function togglePause() {
-    const W = state.W; if (!W || W.over) return;
+    const W = state.W; if (!W || W.over || state.online) return;
     W.paused = !W.paused; state.skipMenu = true;
     if (W.paused) {
       Audio.play('back');
@@ -421,6 +446,7 @@
 
   function readInputs(W) {
     for (const f of W.fighters) {
+      if (state.online) { f.inp = f.slot === 0 ? Input.read('any',settings.tapJump) : Online.takeInput(); f.inp.pause=false; continue; }
       if (f.cpu) f.inp = AI.think(f, W);
       else f.inp = Input.read(f.device || 'any', settings.tapJump);
       if (f.inp.pause && !W.over && W.t - (state.lastPauseT || -99) > 20) { state.lastPauseT = W.t; togglePause(); f.inp.pause = false; }
@@ -429,6 +455,7 @@
 
   function tick() {
     if (state.scene === 'match' && state.W) {
+      if(state.online && !Online.host){Online.input(Input.read('any',settings.tapJump));if(Online.snapshot){state.W=Online.snapshot;if(state.W.over&&state.W.endT>=150)onlineResults(state.W);}if(Online.stale)onlineError('No updates from host. Keep the host tab active, or reconnect.');return;}
       const W = state.W;
       if (!W.paused) {
         if (W.countdown === 179 || W.countdown === 119 || W.countdown === 59) Audio.play('countdown');
@@ -438,6 +465,7 @@
         if (W.cfg.mode === 'training') trainingTick(W);
         for (const ev of W.events) if (ev.type === 'ko' && ev.f.stocks <= 0) state.match.koOrder.push(ev.f);
         W.events.length = 0;
+        if(state.online) Online.broadcast(W);
         if (W.over && W.endT === 1) { Audio.play('win'); }
         if (W.over && W.endT === 150) state.match.onEnd(W);
       }

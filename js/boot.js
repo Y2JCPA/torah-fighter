@@ -11,5 +11,5 @@
     console.warn('Three.js modules unavailable, using the fallback build', e);
     await load('vendor/three.min.js');
   }
-  for (const s of ['data.js', 'audio.js', 'input.js', 'engine.js', 'ai.js', 'art.js', 'chars3d.js', 'render3d.js', 'vfx3d.js', 'ui.js']) await load(s);
+  for (const s of ['data.js', 'audio.js', 'input.js', 'engine.js', 'ai.js', 'art.js', 'chars3d.js', 'render3d.js', 'vfx3d.js', 'firebase-config.js', 'net-codec.js', 'online.js', 'ui.js']) await load(s);
 })();
