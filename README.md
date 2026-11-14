@@ -13,6 +13,7 @@ Quality steps down automatically on slower devices. A classic 2D renderer is sti
 The roster is a wall of hero tiles, styled after Smash Ultimate. Each player has a token (P1–P4, or CPU) that sits on their hero; drag it to another tile to switch, or drop it off the roster to clear. Player panels along the bottom show the hero in 3D, the HMN/CPU toggle, controller and CPU level. When everyone has picked, a **READY TO FIGHT** banner appears. The announcer reads out each hero's name, using the browser's speech engine. Rules are behind the chip in the top-right corner.
 
 ## Modes
+- **Online Versus**: two players on separate devices using a private six-character room code. Choose Online Versus, create a room and share the code; the second player joins, then the host starts. No player account is needed. Keep the host tab active. Direct connections may be blocked on restrictive networks; see [ONLINE.md](ONLINE.md) for setup, tests and limitations.
 - **Versus**: 1–4 fighters, any mix of humans and CPUs (levels 1–9). Stock or time rules, teams, items, stage hazards, and the Ruach Orb for Final Strikes.
 - **Classic Journey**: seven battles across Tanach (Michmash, Elah, a Yericho team battle, Carmel, Yam Suf, Sinai), then a boss fight against **Golyat**, who has stamina instead of percent. Beat it with a hero to earn that hero a ⭐.
 - **Training**: practice on a dummy. Options for dummy behaviour, item spawning, a combo counter, damage reset and a hitbox view.

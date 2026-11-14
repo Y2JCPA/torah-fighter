@@ -24,7 +24,7 @@ Two players only, with the host tab active. No host migration or reconnect. STUN
 - Real keyboard movement and attacks from both sides reached the authoritative simulation; guest snapshots showed shared damage and stocks. A special attack continued to decode/render without JS errors.
 - The match-ending test deliberately placed one fighter beyond the blast boundary with one stock, then verified both players saw the same winner. This checks end-state propagation, not a complete naturally played match.
 - Full-room rejection and database permission checks passed: unauthenticated root reads, outsider signaling writes, guest takeover and outsider room deletion are denied. Temporary permission-test room/accounts are removed.
-- Local Versus, Training and Classic selection screens still boot.
+- Local Versus, Training and Classic selection screens still boot. Closing the host context notifies the guest; malformed codes show a clear error.
 - Disconnect cleanup clears data-channel references, stale unordered snapshots are ignored, and final results also travel over the reliable control channel.
 
 ## Repeatable checks
